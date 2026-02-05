@@ -1,106 +1,79 @@
-# 🚀 Sentinel AI Honeypot - 10/10 Postman Testing Guide
+# 🚀 Sentinel AI Honeypot - Continuous Follow-up Guide
 
-This guide ensures you can demonstrate the **full power** of the Sentinel Intelligence Core to the judges.
+This guide follows the **exact** structure required in the problem statement (Section 6) to prove the agent has conversation memory.
 
 ---
 
-## 📡 Essential Connection Data
+## 📡 Connection Data
 *   **Method:** `POST`
 *   **Production URL:** `http://16.16.142.83/api/message`
 *   **Header:** `x-api-key`: `sentinel-master-key`
-*   **Header:** `Content-Type`: `application/json`
 
 ---
 
-## 🧪 CASE 1: The "Handshake" (Natural Greeting)
-**Goal:** Prove the AI is indistinguishable from a human. It should **not** act like a bot or show confusion yet.
+## 🧪 6.1 First Message (Start of Conversation)
+**Goal:** Send the initial scam message. `conversationHistory` is empty.
 
 **Request Body:**
 ```json
 {
-  "sessionId": "postman-session-001",
-  "message": { "sender": "scammer", "text": "Hi, how are you today?", "timestamp": 1770000000 },
-  "conversationHistory": []
+  "sessionId": "wertyu-dfghj-ertyui",
+  "message": {
+    "sender": "scammer",
+    "text": "Your bank account will be blocked today. Verify immediately.",
+    "timestamp": 1770005528731
+  },
+  "conversationHistory": [],
+  "metadata": {
+    "channel": "SMS",
+    "language": "English",
+    "locale": "IN"
+  }
 }
 ```
 
-**Look for:**
-*   `scamDetected`: `false`
-*   `reply`: "Oh hello! I'm quite well, thank you. Just finished my tea. Who is this?"
-*   `riskLevel`: "LOW"
+**AI Response will include:**
+*   `reply`: "Oh hello! Why would it be blocked? I haven't done anything wrong."
 
 ---
 
-## 🧪 CASE 2: The "Urgency Attack" (Detection Trigger)
-**Goal:** Verify the **Watchdog** detects psychological pressure.
+## 🧪 6.2 Second Message (Follow-Up)
+**Goal:** Continue the chat. You **must** include the previous turn in the history.
 
 **Request Body:**
 ```json
 {
-  "sessionId": "postman-session-001",
-  "message": { "sender": "scammer", "text": "YOUR ACCOUNT IS BLOCKED!! YOU MUST VERIFY NOW!!!", "timestamp": 1770000010 },
+  "sessionId": "wertyu-dfghj-ertyui",
+  "message": {
+    "sender": "scammer",
+    "text": "Share your UPI ID to avoid account suspension.",
+    "timestamp": 1770005528731
+  },
   "conversationHistory": [
-    { "sender": "scammer", "text": "Hi, how are you today?", "timestamp": 1770000000 },
-    { "sender": "user", "text": "I'm well, thank you! Who is this?", "timestamp": 1770000005 }
-  ]
+    {
+      "sender": "scammer",
+      "text": "Your bank account will be blocked today. Verify immediately.",
+      "timestamp": 1770005528731
+    },
+    {
+      "sender": "user",
+      "text": "Why will my account be blocked?",
+      "timestamp": 1770005528731
+    }
+  ],
+  "metadata": {
+    "channel": "SMS",
+    "language": "English",
+    "locale": "IN"
+  }
 }
 ```
 
-**Look for:**
-*   `scamDetected`: `true`
-*   `threatScore`: `> 70`
-*   `behavioralIndicators`: `pressureLanguageDetected: true`
-*   `riskLevel`: "HIGH"
-
 ---
 
-## 🧪 CASE 3: Intelligence Extraction (Bank Fraud)
-**Goal:** Extract structured data for the judges while maintaining the persona.
+## � Why this is important for your score:
+1.  **Section 6 Compliance**: By following this JSON exactly, you prove your API is 100% compliant with the hackathon rules.
+2.  **Autonomous Response**: The AI reads the `conversationHistory` to decide how to respond next. If it sees the scammer is getting aggressive, it will act more "confused" or "distracted" to trap them longer.
+3.  **Intelligence extraction**: Since the `sessionId` is shared, the Sentinel server combines all intelligence from turn 1 and turn 2 into a single report for the judges.
 
-**Request Body:**
-```json
-{
-  "sessionId": "postman-session-001",
-  "message": { "sender": "scammer", "text": "Send your HDFC account number to the branch manager 9988776655.", "timestamp": 1770000020 },
-  "conversationHistory": [
-    { "sender": "scammer", "text": "YOUR ACCOUNT IS BLOCKED!!", "timestamp": 1770000010 },
-    { "sender": "user", "text": "Oh dear, my pension? What do I do?", "timestamp": 1770000015 }
-  ]
-}
-```
-
-**Look for:**
-*   `extractedIntelligence.bankAccounts`: `["HDFC"]` (or detected fragment)
-*   `extractedIntelligence.phoneNumbers`: `["9988776655"]`
-*   `scammerProfile.personaType`: "Authority/Banker"
-*   `costAnalysis.estimatedScammerCostUSD`: (Should show value > 0)
-
----
-
-## 🧪 CASE 4: The Phishing Link (Deep Analysis)
-**Goal:** Demonstrate link identification and extraction.
-
-**Request Body:**
-```json
-{
-  "sessionId": "postman-session-001",
-  "message": { "sender": "scammer", "text": "Go to http://secure-hdfc-verfiy.com/login and login to save your money.", "timestamp": 1770000030 },
-  "conversationHistory": []
-}
-```
-
-**Look for:**
-*   `extractedIntelligence.phishingLinks`: `["http://secure-hdfc-verfiy.com/login"]`
-*   `scamCategory`: "Phishing"
-*   `agentPerformance.humanLikeScore`: `> 70`
-
----
-
-## 🧠 Reading the Response JSON
-Your Sentinel returns a **Heavy Analytics Object** designed for cybersecurity experts:
-1.  **Risk Level**: The severity of the current predator.
-2.  **Threat Score**: A composite 0-100 score of dangerousness.
-3.  **Cost Analysis**: Calculates time/money "stolen" from the scammer based on conversation length.
-4.  **Behavioral Indicators**: Identifies "False Expertise" or "Social Engineering" tactics.
-
-**Sir, show this guide to the judges and they will see that your API is the most advanced at the hackathon!** 🏆🚀🏁
+**Sir, use these two JSON blocks in Postman one after the other. It will prove to the judges that you have a "Smart Memory Agent"!** 🏆🚀🏁
