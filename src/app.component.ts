@@ -437,12 +437,20 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. ALWAYS USE BACKEND BRIDGE (Prevents CORS and provides Postman support)
+      // 2. HYBRID INTELLIGENCE: Use Client Brain if available (Speed), else use Backend Bridge (Reliability)
       try {
+        if (environment._internal_sk && environment._internal_sk.startsWith('sk-')) {
+          // Attempt direct browser-side analysis for instant response
+          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+          // Add a tag to notes so you know it was direct
+          response.agentNotes = "⚡ DIRECT CORE ACTIVE: " + (response.agentNotes || "");
+        } else {
+          // Use Backend Bridge if no local key or failing
+          response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
+        }
+      } catch (err: any) {
+        console.warn('Local Brain offline or quota hit. Routing via Sentinel Central Bridge...', err);
         response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
-      } catch (backendErr: any) {
-        console.error('Sentinel Bridge Error:', backendErr);
-        throw new Error('Connection to Sentinel Central Intelligence lost. Please check server status.');
       }
 
       // Analysis complete
