@@ -135,14 +135,24 @@ class SessionState:
                 for item in new_intel[key]:
                     if not item: continue
                     clean_item = str(item).strip().rstrip('.,?!')
+                    
                     if key == "phoneNumbers":
+                        # Ensure it's not a substring of an account
                         fp = get_phone_fingerprint(clean_item)
                         if fp and not any(get_phone_fingerprint(ex) == fp for ex in existing_items):
                             existing_items.append(clean_item)
                         continue
-                    if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
-                        # No longer pushing accounts into phoneNumbers to keep data clean
-                        pass
+                    
+                    if key == "bankAccounts":
+                        # If heuristic found a labeled one "Bank: 123", prefer it over just "123"
+                        low_matches = {str(x).lower() for x in existing_items}
+                        if clean_item.lower() not in low_matches:
+                            # If this is just a number and we already have a labeled version of it, skip
+                            if clean_item.isdigit() and any(clean_item in str(x) for x in existing_items):
+                                continue
+                            existing_items.append(clean_item)
+                        continue
+
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
                     if clean_item.lower() not in low_matches:
                         existing_items.append(clean_item)
@@ -270,13 +280,18 @@ OUTPUT JSON SCHEMA (STRICT):
     "otpHarvestingAttempt": boolean
   },
   "extractedIntelligence": {
-    "bankAccounts": [], "upiIds": [], "phishingLinks": [], "phoneNumbers": [], "suspiciousKeywords": []
+    "bankAccounts": ["BANK_NAME: ACCOUNT_NUMBER"], 
+    "upiIds": ["scammer@upi"], 
+    "phishingLinks": ["http://link.com"], 
+    "phoneNumbers": ["10-digit-number"], 
+    "suspiciousKeywords": ["urgent", "blocked", "verify"]
   },
   "scammerProfile": {
     "personaType": "e.g., Fake Police, Fake Banker",
-    "aggressionLevel": "LOW | MEDIUM | HIGH"
+    "aggressionLevel": "LOW | MEDIUM | HIGH",
+    "technicalSophistication": "LOW | MEDIUM | HIGH"
   },
-  "agentNotes": "Comprehensive Forensic Audit: [PATTERN: <exact scam hook identified via GPT-4o internal knowledge>], [PSYCHOLOGICAL_PROFILE: <e.g., Aggressive, Authoritative>], [STATUS: <current trap progress and captured payloads>]."
+  "agentNotes": "Comprehensive Forensic Audit: [PATTERN: <exact scam hook identified via GPT-4o internal knowledge>], [PSYCHOLOGICAL_PROFILE: <e.g., Aggressively using fear of account closure>], [CAPTURED_PAYLOADS: <List specific bank accounts or IDs found>], [STATUS: <current stage of the sting operation>]."
 }
 """
 
@@ -376,32 +391,40 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
 
     # --- HEURISTIC INTELLIGENCE (Guardian Mode) ---
-    # Scan ENTIRE history to catch items missed in previous turns or if history is passed in payload
     all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
-    combined_input = f"{all_text} {payload.message.sender} {payload.message.text}".lower()
+    combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
+    lower_input = combined_input.lower()
     
-    # Extract actual bank names and potential account numbers
-    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
-    acc_numbers = re.findall(r'\b\d{10,18}\b', combined_input) # Typical 10-18 digit account numbers
-    
-    # Ultimate Phone Regex: Catches basically any 10-digit sequence starting with 6-9, 
-    # optionally prefixed by +91/91, allowing lax separators (dots, dashes, spaces)
-    raw_phones = re.findall(r'(?:\+?91[\-\.\s]?)?[6-9]\d{2,4}[\-\.\s]?\d{2,4}[\-\.\s]?\d{2,4}', combined_input)
-    # Filter to ensure we actually got a valid phone number length (10 digits or 12 with country code)
-    clean_phones = []
-    for p in raw_phones:
-        digits = re.sub(r'\D', '', p)
-        # Indian mobile numbers are 10 digits. If we have 12, it's likely country code prefixed.
-        # If it's 16+ digits, it's an account number, not a phone.
-        if 10 <= len(digits) <= 13: 
-            clean_phones.append(digits[-10:])
+    # 1. Dynamic Bank + Account Pairing (Non-Hardcoded)
+    paired_accounts = []
+    # Find all 10-18 digit numbers that are NOT phones
+    all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
+    for num in all_numbers:
+        start_idx = combined_input.find(num)
+        # Scan 60 chars before for potential entity names (Capitalized words)
+        context_before = combined_input[max(0, start_idx-60):start_idx]
+        # Look for the last capitalized word before 'account' or the number itself
+        potential_bank = re.findall(r'\b[A-Z][a-zA-Z]+\b', context_before)
+        bank_name = "Account"
+        if potential_bank:
+            # Filter out common names like Raj, Alex, etc.
+            filtered_banks = [b for b in potential_bank if b.lower() not in ["raj", "alex", "employee", "manager", "dear"]]
+            if filtered_banks: bank_name = filtered_banks[-1]
+        
+        paired_accounts.append(f"{bank_name}: {num}")
+
+    # 2. Precision Phone Extraction: Uses negative lookarounds to avoid long strings
+    # Must be 10 digits starting with 6-9, NOT preceded or followed by a digit.
+    # Matches +91-987... but not 12345[6789012345]6
+    raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
+    clean_phones = [re.sub(r'\D', '', p)[-10:] for p in raw_phones]
 
     heuristic_intel = {
-        "bankAccounts": list(set(banks_found + acc_numbers)),
-        "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', combined_input),
-        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', combined_input),
+        "bankAccounts": list(set(paired_accounts)),
+        "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
+        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": list(set(clean_phones)),
-        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support", "bank", "account", "refund", "kyc", "compromised", "lock"] if k in combined_input]
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank", "account"] if k in lower_input]))
     }
     state.update_intelligence(heuristic_intel)
 
