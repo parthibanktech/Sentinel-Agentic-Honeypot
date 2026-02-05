@@ -456,7 +456,7 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
       // Analysis complete
       this.isProcessing.set(false);
 
-      // 3. Update Intelligence immediately
+      // 3. Update Dashboard Intelligence & Notes
       if (response.extractedIntelligence) {
         this.intelligence.update(current => ({
           ...current,
@@ -468,8 +468,12 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
           socialEngineeringTactics: Array.from(new Set([...current.socialEngineeringTactics, ...(response.extractedIntelligence.socialEngineeringTactics || [])]))
         }));
       }
+
+      // Update the Analysis Card
+      this.agentNotes.set(response.agentNotes || "Sentinel Brain Active. Evaluating scam vectors...");
       this.confidenceScore.set(response.confidenceScore);
       this.confidenceHistory.update(h => [...h, response.confidenceScore]);
+      this.isScamConfirmed.set(response.scamDetected);
 
       // Reactive Update: Allow status to toggle back to safe if confidence drops
       // This ensures the "SCAM DETECTED" banner and final report align with the latest assessment

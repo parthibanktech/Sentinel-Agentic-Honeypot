@@ -138,13 +138,12 @@ export class OpenAIService {
       SCAMMER: ${currentMessage}
       
       INSTRUCTIONS:
-      1. SCAM DETECTION: Score 0-100.
+      1. SCAM DETECTION: Score 0-100 based on threat level.
       2. INTELLIGENCE EXTRACTION: Extract bank accounts, UPIs, Links, phone numbers.
-      3. IMPERSONATION CHECK: If user claims to be family but fails to provide a name, increase suspicion.
-      4. AGENT NOTES: Provide a structured summary. Use bullet points (•) to detail:
-         - Observed Tactics (e.g., Urgency, Authority)
-         - Key Intel Extracted (e.g., Bank: XYZ)
-         - Behavioral Patterns (e.g., Aggressive push for OTP)
+      3. AGENT NOTES (CRITICAL): Provide a 1-sentence summary of the threat. Focus on:
+         - Urgency tactics
+         - Financial solicitation
+         - Phishing link presence
       
       OUTPUT JSON ONLY.
       
