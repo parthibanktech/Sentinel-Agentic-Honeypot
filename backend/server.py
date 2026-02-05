@@ -289,28 +289,49 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     except Exception as e:
         print(f"Agent Processing Error: {str(e)}")
         
-        # --- HEURISTIC FALLBACK (Watchdog) ---
-        # If AI brain fails, use local keyword rules to at least detect some intent
-        scam_keywords = ["bank", "hdfc", "otp", "verify", "block", "locked", "urgent", "pan", "upi", "pay", "click", "bit.ly"]
+        # --- SMART PERSONA EMULATOR (Zero-Key Fallback) ---
+        # If the AI Brain is offline/quota-hit, we use local logic to stay in character
         msg_lower = payload.message.text.lower()
-        has_keywords = any(kw in msg_lower for kw in scam_keywords)
         
-        confidence = 0
-        notes = "Sentinel processing... Establishing threat vectors."
-        if has_keywords:
-            confidence = 85
-            notes = "🛡️ HEURISTIC MATCH: Suspicious financial keywords detected. Sentinel standing by."
-            state.scamDetected = True
+        # 1. Detection Logic (Watchdog)
+        scam_patterns = {
+            "bank": ["hdfc", "bank", "account", "block", "verify", "pan", "kyc"],
+            "upi": ["upi", "paytm", "gpay", "google pay", "phonepe", "pin", "request"],
+            "link": ["bit.ly", "click", "http", "link", "url", "website"],
+            "job": ["work", "salary", "job", "part time", "telegram"]
+        }
         
-        fallback_replies = [
-            "Oh dear, I'm having a bit of trouble with my phone. What was it you were saying about the bank?",
-            "I'm sorry, I must have pressed the wrong button. Could you explain that again slowly?",
-            "My reading glasses are missing... did you say something about my account being blocked?"
-        ]
-        import random
+        detected_type = None
+        for s_type, keywords in scam_patterns.items():
+            if any(k in msg_lower for k in keywords):
+                detected_type = s_type
+                break
+
+        if detected_type or "hi" in msg_lower or "hello" in msg_lower:
+            state.scamDetected = True if detected_type else state.scamDetected
+            confidence = 90 if detected_type else 15
+            
+            # --- CONTEXT-AWARE LOCAL REPLICAS ---
+            if "hi" in msg_lower or "hello" in msg_lower:
+                local_reply = "Oh, hello there! My hearing aid was whistling, I didn't hear the phone. Who is this?"
+            elif detected_type == "bank":
+                local_reply = "Oh dear, my grandson told me about these banking things. Is my pension account in trouble? What do I need to do?"
+            elif detected_type == "upi":
+                local_reply = "I don't have that Google thing on my phone. Can I just send you a cheque in the post?"
+            elif detected_type == "link":
+                local_reply = "I clicked that blue writing but my screen just went dark. Should I try again? My reading glasses are missing."
+            else:
+                local_reply = "I'm sorry, I'm not very good with these new phones. Could you explain that again slowly for an old teacher?"
+            
+            notes = f"🛡️ SENTINEL CORE: Local failover active. {detected_type.upper() if detected_type else 'GREETING'} pattern matched."
+        else:
+            local_reply = "Hello? I'm sorry, is someone there? I think my phone is acting up again."
+            confidence = 10
+            notes = "Sentinel processing... Establishing threat vectors."
+
         return HoneypotResponse(
             status="success", 
-            reply=random.choice(fallback_replies),
+            reply=local_reply,
             scamDetected=state.scamDetected,
             confidenceScore=confidence,
             agentNotes=notes,
