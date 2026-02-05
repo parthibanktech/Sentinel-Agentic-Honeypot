@@ -28,8 +28,8 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
   sessionId = signal<string>(uuidv4());
 
   // App Config
-  // Default to CLIENT_OPENAI for ChatGPT support
-  backendMode = signal<'PYTHON_LANGGRAPH' | 'CLIENT_OPENAI'>('CLIENT_OPENAI');
+  // Use Python backend which has access to Render environment variables
+  backendMode = signal<'PYTHON_LANGGRAPH' | 'CLIENT_OPENAI'>('PYTHON_LANGGRAPH');
   isAudioEnabled = signal<boolean>(false);
   isTerminalMode = signal<boolean>(false); // Visual Theme Toggle
 
