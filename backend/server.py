@@ -160,9 +160,16 @@ OUTPUT FORMAT (STRICT JSON ONLY):
 
 # --- HELPERS ---
 async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
-    if x_api_key != HONEYPOT_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-    return x_api_key
+    # 1. Master Authentication
+    if x_api_key == HONEYPOT_API_KEY:
+        return x_api_key
+    
+    # 2. Dynamic Model Access (OpenAI or Gemini keys)
+    # This allows evaluators to use their own keys directly via Postman x-api-key header
+    if x_api_key.startswith("sk-") or x_api_key.startswith("AIza"):
+        return x_api_key
+        
+    raise HTTPException(status_code=401, detail="Invalid API Key")
 
 async def send_final_result(session: SessionState):
     if session.isFinalResultSent: return
@@ -193,7 +200,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state = sessions[sid]
     state.totalMessagesExchanged = len(payload.conversationHistory) + 1
     
-    if not llm:
+    # DYNAMIC LLM SELECTION
+    # If the provided header is a real model key, spin up a temporary LLM instance for this request.
+    current_llm = llm
+    if auth.startswith("sk-"):
+        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+    elif auth.startswith("AIza"):
+        current_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=auth, temperature=0.7)
+
+    if not current_llm:
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
 
     history = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in payload.conversationHistory])
@@ -201,7 +216,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     full_prompt = f"{SYSTEM_PROMPT}\n\nHISTORY:\n{history}\n\n{current}\n\nRespond in JSON."
     
     try:
-        response = await llm.ainvoke([HumanMessage(content=full_prompt)])
+        response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
         content = response.content.strip()
         
         # Clean markdown if present
