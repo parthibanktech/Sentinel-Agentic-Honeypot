@@ -166,7 +166,15 @@ export class OpenAIService {
     `;
 
     try {
-      const result = await this.callOpenAI(prompt, true, 0, 1000); // Max tokens 1000 for JSON
+      let result = await this.callOpenAI(prompt, true, 0, 1000); // Max tokens 1000 for JSON
+
+      // CLEAN MARKDOWN IF PRESENT
+      if (result.includes('```json')) {
+        result = result.split('```json')[1].split('```')[0].trim();
+      } else if (result.includes('```')) {
+        result = result.split('```')[1].split('```')[0].trim();
+      }
+
       const parsed = JSON.parse(result);
       if (parsed.extractedIntelligence) {
         parsed.extractedIntelligence.confidence = parsed.confidenceScore || 0;
