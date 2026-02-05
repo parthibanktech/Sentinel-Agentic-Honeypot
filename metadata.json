@@ -1,0 +1,5 @@
+{
+  "name": "Sentinel: AI Honeypot Simulator",
+  "description": "A simulation of an Agentic AI Honeypot API that detects scams, engages attackers autonomously, and extracts intelligence using Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}
