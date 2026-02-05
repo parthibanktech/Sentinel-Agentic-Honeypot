@@ -302,12 +302,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
     # --- HEURISTIC INTELLIGENCE (Guardian Mode) ---
     msg_text = payload.message.text
+    sender_text = payload.message.sender
+    combined_input = f"{sender_text} {msg_text}".lower()
+    
     heuristic_intel = {
-        "bankAccounts": re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|Refund|Bank|Account|Acc)\b', msg_text, re.I),
-        "upiIds": re.findall(r'[\w.-]+@[\w.-]+', msg_text),
-        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', msg_text),
-        "phoneNumbers": re.findall(r'\b(?:\+?91|0)?[6-9]\d{9}\b', msg_text),
-        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery"] if k in msg_text.lower()]
+        "bankAccounts": re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|Refund|Bank|Account|Acc)\b', combined_input, re.I),
+        "upiIds": re.findall(r'[\w.-]+@[\w.-]+', combined_input),
+        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', combined_input),
+        "phoneNumbers": re.findall(r'\b(?:\+?91|0)?[6-9]\d{9}\b', combined_input),
+        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support"] if k in combined_input]
     }
     state.update_intelligence(heuristic_intel)
 
@@ -326,15 +329,17 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         
         # Sync state
         state.scamDetected = result.get("scamDetected", state.scamDetected)
+        if "bank" in combined_input or "sbi" in combined_input: state.scamDetected = True # Extra safety
+        
         state.update_intelligence(result.get("extractedIntelligence", {}))
-        state.agentNotes = result.get("agentNotes", state.agentNotes)
+        state.agentNotes = result.get("agentNotes", "Brain Active: Intelligence Captured.")
         
         # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough
         # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count > 8
         is_finished = result.get("isFinished", False)
         intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
         
-        if state.scamDetected and (is_finished or intelligence_count >= 3 or state.totalMessagesExchanged >= 8):
+        if state.scamDetected and (state.totalMessagesExchanged >= 5):
             asyncio.create_task(send_final_result(state))
 
         # Prepare updated history to return
@@ -378,12 +383,11 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
-        msg_lower = payload.message.text.lower()
-        is_fraud = any(k in msg_lower for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp"])
+        is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support"])
         state.scamDetected = is_fraud or state.scamDetected
         
         local_reply = "Oh, hello! My hearing aid was whistling again. Who is this, please?"
-        if "how are you" in msg_lower:
+        if "how are you" in combined_input:
             local_reply = "I'm doing quite well, thank you! Just putting on the kettle. How are you doing?"
         elif is_fraud:
             local_reply = "Oh dear, my pension account? Is it safe? My grandson told me about those scammers... what should I do?"
@@ -394,12 +398,17 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
         updated_history = payload.conversationHistory + [payload.message]
 
+        # Diagnostic Note
+        error_note = f"⚠️ BRAIN OFFLINE: {str(e)}. Heuristic Shield active."
+        if "quota" in str(e).lower() or "billing" in str(e).lower():
+            error_note = "⚠️ KEY EXPIRED: Your OpenAI Key has no credits. Using Heuristic Persona."
+
         return HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
             extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-            agentNotes="🛡️ SENTINEL SHIELD: Autonomous Persona Failover Active.",
+            agentNotes=error_note,
             status="success", 
             reply=local_reply,
             confidenceScore=0.9 if state.scamDetected else 0.1,
