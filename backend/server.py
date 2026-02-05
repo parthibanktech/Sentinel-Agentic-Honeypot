@@ -84,6 +84,7 @@ class SessionState:
         }
         self.agentNotes = ""
         self.isFinalResultSent = False
+        self.history: List[MessageObj] = []
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
         for key in self.extractedIntelligence:
@@ -288,6 +289,14 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state = sessions[sid]
     state.totalMessagesExchanged = len(payload.conversationHistory) + 1
     
+    # --- SERVER-SIDE SESSION TRACKING ---
+    # Merge client history with server history to ensure count never resets
+    if not state.history and payload.conversationHistory:
+        state.history = payload.conversationHistory
+    
+    # Add the NEW incoming message to server-side record
+    state.history.append(payload.message)
+    
     # --- TRIPLE FAILSAFE (Brain Health) ---
     def is_valid_sk(k): 
         return isinstance(k, str) and k.startswith("sk-") and len(k) > 30 and "{" not in k and "$" not in k
@@ -360,10 +369,11 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             asyncio.create_task(send_final_result(state))
 
         # Prepare updated history to return
-        updated_history = payload.conversationHistory + [payload.message]
         agent_reply_obj = MessageObj(sender="user", text=result.get("reply", "Hello?"), timestamp=int(asyncio.get_event_loop().time() * 1000))
-        final_history = updated_history + [agent_reply_obj]
-        state.totalMessagesExchanged = len(final_history)
+        
+        # Add the agent's reply to server-side record
+        state.history.append(agent_reply_obj)
+        state.totalMessagesExchanged = len(state.history)
 
         return HoneypotResponse(
             sessionId=sid,
@@ -379,8 +389,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             threatScore=result.get("threatScore", 85 if state.scamDetected else 5),
             behavioralIndicators=BehavioralIndicators(**result.get("behavioralIndicators", {})),
             engagementMetrics=EngagementMetrics(
-                agentMessages=len([m for m in payload.conversationHistory if m.sender == 'user']) + 1,
-                scammerMessages=len([m for m in payload.conversationHistory if m.sender == 'scammer']) + 1
+                agentMessages=len([m for m in state.history if m.sender == 'user']),
+                scammerMessages=len([m for m in state.history if m.sender == 'scammer'])
             ),
             scammerProfile=ScammerProfile(**result.get("scammerProfile", {})),
             costAnalysis=CostAnalysis(**result.get("costAnalysis", {
@@ -397,12 +407,12 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
                 extractionAccuracyScore=0.91
             ),
             systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
-            conversationHistory=updated_history + [agent_reply_obj]
+            conversationHistory=state.history
         )
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
-        is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support"])
+        is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc"])
         state.scamDetected = is_fraud or state.scamDetected
         
         local_reply = "Oh, hello there. It's nice to hear from someone, but my hearing aid is a bit loud... may I ask who is this and how did you get my number?"
@@ -411,15 +421,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         elif is_fraud:
             local_reply = "Oh dear, my pension account? Is it safe? My grandson told me about those scammers... what should I do?"
 
+        # Update History in Failover
+        agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
+        state.history.append(agent_reply_obj)
+        state.totalMessagesExchanged = len(state.history)
+
         # Failover trigger logic
         intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
         if state.scamDetected and (intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
             asyncio.create_task(send_final_result(state))
-
-        agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
-        updated_history = payload.conversationHistory + [payload.message]
-        final_history = updated_history + [agent_reply_obj]
-        state.totalMessagesExchanged = len(final_history)
 
         # Diagnostic Note
         error_note = f"⚠️ BRAIN OFFLINE: {str(e)}. Heuristic Shield active."
@@ -438,7 +448,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             riskLevel="HIGH" if state.scamDetected else "LOW",
             scamCategory="Fraud Alert" if state.scamDetected else "Benign",
             threatScore=90 if state.scamDetected else 10,
-            conversationHistory=updated_history + [agent_reply_obj]
+            conversationHistory=state.history
         )
 
 # Mount static files AFTER all API routes to serve the Angular app
