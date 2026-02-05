@@ -54,8 +54,8 @@ jobs:
           # Update environment variables
           echo "🔐 Updating environment..."
           cat > backend/.env << ENVEOF
-OPENAI_API_KEY=${OPENAI_KEY}
-HONEYPOT_API_KEY=${HONEYPOT_KEY}
+OPENAI_API_KEY=\${OPENAI_KEY}
+HONEYPOT_API_KEY=\${HONEYPOT_KEY}
 PORT=8000
 ENVEOF
           
