@@ -1,0 +1,90 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          HONEYPOT_API_KEY: ${{ secrets.HONEYPOT_API_KEY }}
+        run: |
+          # Save SSH key
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # Add EC2 to known hosts
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+          
+          # Deploy via SSH
+          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << 'ENDSSH'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to app directory
+            cd ~/Sentinel-Agentic-Honeypot || {
+              echo "Repository not found, cloning..."
+              cd ~
+              git clone https://github.com/parthibanktech/Sentinel-Agentic-Honeypot.git
+              cd Sentinel-Agentic-Honeypot
+            }
+            
+            # Pull latest changes
+            echo "📥 Pulling latest code..."
+            git pull origin main
+            
+            # Update environment variables
+            echo "🔐 Updating environment..."
+            cat > backend/.env << EOF
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          HONEYPOT_API_KEY=${{ secrets.HONEYPOT_API_KEY }}
+          PORT=8000
+          EOF
+            
+            # Stop old container
+            echo "🛑 Stopping old container..."
+            docker stop sentinel-honeypot 2>/dev/null || true
+            docker rm sentinel-honeypot 2>/dev/null || true
+            
+            # Build new image
+            echo "🏗️ Building Docker image..."
+            docker build -t sentinel-honeypot .
+            
+            # Run new container
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --name sentinel-honeypot \
+              -p 80:8000 \
+              --env-file backend/.env \
+              --restart unless-stopped \
+              sentinel-honeypot
+            
+            # Wait for startup
+            sleep 5
+            
+            # Check status
+            echo "✅ Deployment complete!"
+            docker ps | grep sentinel-honeypot
+            
+            # Show recent logs
+            echo "📝 Recent logs:"
+            docker logs --tail 20 sentinel-honeypot
+          ENDSSH
+          
+          # Cleanup
+          rm -f private_key.pem
+          
+          echo "✅ Deployment successful!"
