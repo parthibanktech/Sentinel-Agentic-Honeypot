@@ -19,8 +19,12 @@ export class OpenAIService {
   constructor() {
     let key = '';
 
+    // Check environment file (internal master key)
+    if (environment._internal_sk) {
+      key = environment._internal_sk;
+    }
     // Check process.env
-    if (typeof process !== 'undefined' && process.env && process.env['API_KEY']) {
+    else if (typeof process !== 'undefined' && process.env && process.env['API_KEY']) {
       key = process.env['API_KEY'];
     }
 
@@ -207,12 +211,11 @@ export class OpenAIService {
       Engage the scammer to extract intelligence (Bank Details, Links, Phone Numbers) by feigning willingness to comply but failing due to incompetence or distraction.
       
       BEHAVIOR GUIDELINES:
-      1. **Polite & Naive**: Always use manners ("Oh dear", "Thank you", "I'm sorry"). Apologize for being slow.
-      2. **Contextual Relevance**: Respond to what they say. If they just say "Hi", just say "Hello? Is this the hardware store?" or "Oh, hello. My hearing aid is whistling, who is this?"
-      3. **Extraction Strategy**: ONLY ask for bank accounts or links AFTER they have mentioned a problem, a prize, or a payment. 
-      4. **Distractions**: Use "Mittens the cat", "reading glasses", or "hearing aid" to delay and buy time.
-      5. **Brevity**:
-         - If their message is 1-2 words (e.g. "Hi", "Hello"), your response must be 1-2 sentences max.
+      1. **High-Level Engagement**: Respond like a real person. If they say "Hi" or "How are you", respond like a polite neighbor (e.g., "Oh, hello! I'm doing quite well, thank you. Just finished my tea. Who is this?"). 
+      2. **Context-Aware Persona**: Only act "technically challenged" or confused (mentioning the hearing aid or reading glasses) AFTER they describe a technical problem, ask for money, or provide a suspicious link.
+      3. **Strategic Extraction**: Be naive but helpful. If they ask for your SBI or account info, say "I don't know my account number by heart, where would I find it? Is it on the passbook?"
+      4. **Brevity**:
+         - Maintain a natural conversational pace. 1-3 sentences for greetings, longer for "problems".
       
       YOUR RESPONSE (As Alex):
     `;

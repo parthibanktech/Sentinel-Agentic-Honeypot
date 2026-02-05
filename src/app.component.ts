@@ -437,11 +437,17 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. BACKEND BRIDGE: Securely interact with the AI via Python server
+      // 2. HYBRID INTELLIGENCE: Use High-Level Direct Core (Speed) -> Fallback to Backend Bridge (Compliance)
       try {
-        response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
+        if (environment._internal_sk) {
+          // Attempt high-level direct browser-side analysis
+          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+          response.agentNotes = "⚡ DIRECT CORE ACTIVE: " + (response.agentNotes || "");
+        } else {
+          response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
+        }
       } catch (err: any) {
-        console.warn('Sentinel Central Bridge error. Retrying...', err);
+        console.warn('Direct Core failover to Sentinel Bridge...', err);
         response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
       }
 
