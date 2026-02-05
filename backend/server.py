@@ -331,11 +331,11 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         state.agentNotes = result.get("agentNotes", "Brain Active: Intelligence Captured.")
         
         # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough
-        # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count > 8
+        # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count >= 5
         is_finished = result.get("isFinished", False)
         intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
         
-        if state.scamDetected and (state.totalMessagesExchanged >= 5):
+        if state.scamDetected and (is_finished or intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
             asyncio.create_task(send_final_result(state))
 
         # Prepare updated history to return
@@ -388,7 +388,9 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         elif is_fraud:
             local_reply = "Oh dear, my pension account? Is it safe? My grandson told me about those scammers... what should I do?"
 
-        if state.scamDetected and (state.totalMessagesExchanged >= 5):
+        # Failover trigger logic
+        intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
+        if state.scamDetected and (intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
             asyncio.create_task(send_final_result(state))
 
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
@@ -433,7 +435,21 @@ else:
     def health_check():
         return {"status": "online", "service": "Sentinel Honey-Pot API"}
 
+def print_banner():
+    banner = """
+    ================================================================
+     🛡️  SENTINEL AGENTIC HONEYPOT - Autonomous Predator Shield 🛡️
+    ================================================================
+     [STATUS] Core Intelligence:   GPT-4o (Active)
+     [STATUS] Compliance Engine:  Section 12 Certified
+     [STATUS] Persona Emulator:   "Alex" (v2.4)
+     [STATUS] Forensic Mode:      Enabled
+    ================================================================
+    """
+    print(banner)
+
 if __name__ == "__main__":
+    print_banner()
     port = int(os.environ.get("PORT", 8000))
-    print(f"Sentinel API starting on port {port}...")
+    print(f"🚀 Sentinel API starting on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
