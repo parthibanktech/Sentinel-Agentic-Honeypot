@@ -341,15 +341,12 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state = sessions[sid]
     
     # --- SERVER-SIDE SESSION TRACKING ---
-    # Self-Healing: If client sends a longer history (e.g. server restarted), accept it.
-    # Otherwise, rely on server state to prevent manipulation.
-    if payload.conversationHistory and len(payload.conversationHistory) > len(state.history):
-        print(f"[SESSION] Healing session {sid}: Updating history from client ({len(payload.conversationHistory)} items).")
+    # Merge client history with server history to ensure count never resets
+    if not state.history and payload.conversationHistory:
         state.history = payload.conversationHistory
     
     # Add the NEW incoming message to server-side record
     state.history.append(payload.message)
-    print(f"[SESSION] {sid} history size: {len(state.history)}")
     
     # --- TRIPLE FAILSAFE (Brain Health) ---
     def is_valid_sk(k): 
@@ -384,9 +381,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
     acc_numbers = re.findall(r'\b\d{10,18}\b', combined_input) # Typical 10-18 digit account numbers
     
-    # Enhanced Phone Regex (supports +91, 0, dashes, spaces)
-    raw_phones = re.findall(r'(?:\+?91[\-\s]?)?[6-9]\d{4}[\-\s]?\d{5}', combined_input)
-    clean_phones = [re.sub(r'\D', '', p)[-10:] for p in raw_phones] # Normalize to last 10 digits
+    # Ultimate Phone Regex: Catches basically any 10-digit sequence starting with 6-9, 
+    # optionally prefixed by +91/91, allowing lax separators (dots, dashes, spaces)
+    raw_phones = re.findall(r'(?:\+?91[\-\.\s]?)?[6-9]\d{2,4}[\-\.\s]?\d{2,4}[\-\.\s]?\d{2,4}', combined_input)
+    # Filter to ensure we actually got at least 10 digits
+    clean_phones = []
+    for p in raw_phones:
+        digits = re.sub(r'\D', '', p)
+        if len(digits) >= 10:  # Matches 9876543210 (10) or 919876543210 (12)
+            clean_phones.append(digits[-10:])
 
     heuristic_intel = {
         "bankAccounts": list(set(banks_found + acc_numbers)),
