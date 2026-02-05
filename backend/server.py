@@ -395,36 +395,37 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
     lower_input = combined_input.lower()
     
+    # 0. Identify phones first to exclude them from bank accounts
+    raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
+    clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
+
     # 1. Dynamic Bank + Account Pairing (Non-Hardcoded)
     paired_accounts = []
-    # Find all 10-18 digit numbers that are NOT phones
     all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
     for num in all_numbers:
+        # EXCLUSION: If it's a 10-digit number starting with 6-9, it's a phone, not an account
+        if len(num) == 10 and num[0] in '6789' and num in clean_phones:
+            continue
+            
         start_idx = combined_input.find(num)
-        # Scan 60 chars before for potential entity names (Capitalized words)
-        context_before = combined_input[max(0, start_idx-60):start_idx]
-        # Look for the last capitalized word before 'account' or the number itself
+        # Scan 80 chars before for potential entity names (Capitalized words)
+        context_before = combined_input[max(0, start_idx-80):start_idx]
         potential_bank = re.findall(r'\b[A-Z][a-zA-Z]+\b', context_before)
+        
         bank_name = "Account"
         if potential_bank:
-            # Filter out common names like Raj, Alex, etc.
-            filtered_banks = [b for b in potential_bank if b.lower() not in ["raj", "alex", "employee", "manager", "dear"]]
-            if filtered_banks: bank_name = filtered_banks[-1]
+            # Filter out names that are definitely not banks/entities
+            filtered = [b for b in potential_bank if b.lower() not in ["raj", "alex", "employee", "manager", "dear", "sir", "hi", "who", "where", "my", "your"]]
+            if filtered: bank_name = filtered[-1]
         
         paired_accounts.append(f"{bank_name}: {num}")
-
-    # 2. Precision Phone Extraction: Uses negative lookarounds to avoid long strings
-    # Must be 10 digits starting with 6-9, NOT preceded or followed by a digit.
-    # Matches +91-987... but not 12345[6789012345]6
-    raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
-    clean_phones = [re.sub(r'\D', '', p)[-10:] for p in raw_phones]
 
     heuristic_intel = {
         "bankAccounts": list(set(paired_accounts)),
         "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
-        "phoneNumbers": list(set(clean_phones)),
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank", "account"] if k in lower_input]))
+        "phoneNumbers": clean_phones,
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank", "account", "support", "link", "id", "fraud"] if k in lower_input]))
     }
     state.update_intelligence(heuristic_intel)
 
@@ -517,7 +518,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
             conversationHistory=state.history
         )
-        print(f"[API_RESPONSE] {final_response.json()}")
+        print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
+        print(final_response.json(indent=2))
         return final_response
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
