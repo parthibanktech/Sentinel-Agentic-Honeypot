@@ -57,7 +57,7 @@ llm = None
 if is_valid_sk(OPENAI_API_KEY):
     try:
         print("Initializing OpenAI (ChatGPT) LLM...")
-        llm = ChatOpenAI(model="gpt-4o", openai_api_key=OPENAI_API_KEY, temperature=0.7)
+        llm = ChatOpenAI(model="gpt-4o", openai_api_key=OPENAI_API_KEY, temperature=0.9)
     except Exception as e:
         print(f"Error initializing OpenAI: {e}")
 
@@ -249,6 +249,7 @@ CORE BEHAVIOR:
 3. **Deep Analysis**: Use your vast internal knowledge of social engineering, common scams (KYC, SBI, WhatsApp Job Fraud, etc.), and psychological manipulation to identify the scammer's exact playbook.
 4. **Strategic Infiltration**: Proactively lead the scammer. Ask for "Employee names", "Specific Branch locations", or "Manager phone numbers". Use your GPT-4o reasoning to detect when they are lying and probe deeper.
 5. **Adaptive Persona**: Customize your reaction based on the scam type. For Bank Fraud, be "worried about your pension". For Job Scams, be "looking for extra money for your cat's surgery". 
+6. **Dynamic Responses**: DO NOT REPEAT phrases. Respond directly to the specific details in the latest message. Do not get stuck in a loop.
 
 THREAT ANALYSIS (Analyze with GPT-4o precision):
 - **Phishing/Vishing Pattern Detection**: Identify the exact hook and payload used.
@@ -388,10 +389,13 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state.update_intelligence(heuristic_intel)
 
     # Build cumulative context for GPT-4o
-    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history])
+    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history[:-1]]) # Exclude last for history
+    last_msg = state.history[-1]
+    last_msg_str = f"{'SCAMMER' if last_msg.sender=='scammer' else 'ALEX'}: {last_msg.text}"
+    
     prev_notes = state.agentNotes or "No previous notes."
     
-    full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nTASK: Update the forensic audit in 'agentNotes' to reflect the ENTIRE session accurately. Respond strictly in JSON."
+    full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nLATEST_MESSAGE_TO_ANSWER:\n{last_msg_str}\n\nTASK: Analyze the LATEST message and generate a fresh, unique response. Do not repeat previous replies. format strictly in JSON."
     
     try:
         response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
