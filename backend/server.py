@@ -502,8 +502,14 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
             conversationHistory=state.history
         )
-        print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
-        print(json.dumps(final_response.dict(), indent=2))
+        try:
+            print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
+            # Use pydantic-safe dict conversion
+            resp_dict = final_response.model_dump() if hasattr(final_response, 'model_dump') else final_response.dict()
+            print(json.dumps(resp_dict, indent=2))
+        except Exception as log_err:
+            print(f"Log Error (Non-Fatal): {log_err}")
+            
         return final_response
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
@@ -564,7 +570,12 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=100, systemLatencyMs=50),
             conversationHistory=state.history
         )
-        print(f"[API_FAILOVER_RESPONSE] {fail_response.json()}")
+        try:
+            resp_dict = fail_response.model_dump() if hasattr(fail_response, 'model_dump') else fail_response.dict()
+            print(f"[API_FAILOVER_RESPONSE] {json.dumps(resp_dict)}")
+        except:
+            pass
+            
         return fail_response
 
 # Mount static files AFTER all API routes to serve the Angular app
