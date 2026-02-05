@@ -144,11 +144,24 @@ class SessionState:
                         continue
                     
                     if key == "bankAccounts":
-                        # Return ONLY the digits for the bankAccounts list to ensure evaluator compatibility
-                        item_digits = re.sub(r'\D', '', clean_item)
-                        if item_digits and len(item_digits) >= 10:
-                            if item_digits not in existing_items:
-                                existing_items.append(item_digits)
+                        item_str = str(item).strip().rstrip('.,?!')
+                        item_digits = re.sub(r'\D', '', item_str)
+                        
+                        if not item_digits or len(item_digits) < 10: continue
+                        
+                        # Find if we already have this numeric sequence (labeled or unlabeled)
+                        match_idx = -1
+                        for idx, ex in enumerate(existing_items):
+                            if item_digits in str(ex):
+                                match_idx = idx
+                                break
+                        
+                        if match_idx == -1:
+                            existing_items.append(item_str)
+                        else:
+                            # If the NEW item is more descriptive (labeled), replace the old one
+                            if len(item_str) > len(str(existing_items[match_idx])):
+                                existing_items[match_idx] = item_str
                         continue
 
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
@@ -397,20 +410,32 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
     clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
 
-    # Clean Account Number Extraction (Raw digits only)
-    potential_accounts = list(set(re.findall(r'\b\d{10,18}\b', combined_input)))
-    # Exclude phones from account list
-    safe_accounts = [acc for acc in potential_accounts if acc not in clean_phones]
+    # Smart Account Number Extraction with Bank Names
+    all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
+    paired_accounts = []
     
-    # Dynamic Bank Name Detection for Keywords
-    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara|Bank)\b', combined_input, re.I)
+    for num in all_numbers:
+        # Skip if it's already identified as a phone
+        if len(num) == 10 and num[0] in '6789' and num in clean_phones:
+            continue
+            
+        # Scan 60 chars before for potential bank names
+        start_idx = combined_input.find(num)
+        context_before = combined_input[max(0, start_idx-60):start_idx]
+        banks_near = re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK|PNB|BOB|CANARA|UNION|FEDERAL|DBS|BANK)\b', context_before, re.I)
+        
+        if banks_near:
+            bank_label = banks_near[-1].upper()
+            paired_accounts.append(f"{bank_label}: {num}")
+        else:
+            paired_accounts.append(num)
 
     heuristic_intel = {
-        "bankAccounts": safe_accounts,
+        "bankAccounts": paired_accounts,
         "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + banks_found))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
     }
     state.update_intelligence(heuristic_intel)
 
