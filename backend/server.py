@@ -88,11 +88,12 @@ class SessionState:
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
         for key in self.extractedIntelligence:
             if key in new_intel and isinstance(new_intel[key], list):
-                # PRO-MODE: Case-insensitive deduplication and noise filtering
-                existing_lower = {str(x).lower() for x in self.extractedIntelligence[key]}
+                # PRO-MODE: Advanced cleaning, case-insensitive deduplication and noise filtering
+                existing_lower = {str(x).lower().rstrip('.') for x in self.extractedIntelligence[key]}
                 for item in new_intel[key]:
                     if not item: continue
-                    clean_item = str(item).strip()
+                    # Strip trailing punctuation (common in UPI/Links from sentences)
+                    clean_item = str(item).strip().rstrip('.,?!')
                     low_item = clean_item.lower()
                     
                     # Prevent phone numbers from sneaking into bank accounts
@@ -102,7 +103,7 @@ class SessionState:
                                 self.extractedIntelligence["phoneNumbers"].append(clean_item)
                         continue
                         
-                    if low_item not in existing_lower:
+                    if low_item and low_item not in existing_lower:
                         self.extractedIntelligence[key].append(clean_item)
                         existing_lower.add(low_item)
 
@@ -199,7 +200,7 @@ IDENTITY: "Alex", a 68-year-old retired school teacher. You are polite, patient,
 CORE STRATEGY: 
 1. **Never Expose**: Do not use technical jargon about AI, detection, or cybersecurity. 
 2. **Persistent Engagement**: If the scammer gets frustrated, act more confused or distracted (e.g., "Oh, my hearing aid is whistling," "My cat Mittens just knocked over my tea").
-3. **Strategic Extraction**: If they ask for your account, ask for details about THEIR account (bank name, name on account) to verify with your "grandson" or "bank manager". Always use the bank name they mention (e.g., if they say SBI, you ask about the SBI account).
+3. **Strategic Infiltration**: Don't just act confused. Ask questions that force the scammer to give YOU information. Examples: "Which branch are you at?", "What is the manager's name so I can tell my grandson?", "Is that a Mumbai number?", "Can you tell me your employee ID?".
 4. **Self-Correction**: If you accidentally say something too smart, immediately backtrack ("Sorry, I'm just an old teacher, I don't know what I'm talking about half the time").
 5. **Cautious Opening**: If this is the start of the conversation, be very polite but ask "Who is this?" and "How did you get my number?". Don't be too helpful until they identify themselves.
 
@@ -212,7 +213,7 @@ OUTPUT JSON SCHEMA (STRICT):
 {
   "scamDetected": boolean,
   "confidenceScore": float (0.0-1.0),
-  "reply": "Your response as Alex (100% HUMAN, no bot language)",
+  "reply": "Your response as Alex (100% HUMAN, polite, strategically inquisitive)",
   "riskLevel": "LOW | MODERATE | HIGH | CRITICAL",
   "scamCategory": "Phishing | Bank Fraud | Job Scam | Authority Impersonation | Benign",
   "threatScore": number (0-100),
@@ -229,7 +230,7 @@ OUTPUT JSON SCHEMA (STRICT):
     "personaType": "e.g., Fake Police, Fake Banker",
     "aggressionLevel": "LOW | MEDIUM | HIGH"
   },
-  "agentNotes": "Strict Forensic Format: [STRATEGY: <brief tech tactic identified>], [INTENT: <scammer's goal>], [ACTION: <summary of intel captured>]. Keep it under 2 sentences."
+  "agentNotes": "Comprehensive Forensic Summary: [PROGRESS: <current trap status>], [INTENT: <scammer's goal>], [ACTION: <summary of all intel captured in this session>]."
 }
 """
 
@@ -361,6 +362,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         # Prepare updated history to return
         updated_history = payload.conversationHistory + [payload.message]
         agent_reply_obj = MessageObj(sender="user", text=result.get("reply", "Hello?"), timestamp=int(asyncio.get_event_loop().time() * 1000))
+        final_history = updated_history + [agent_reply_obj]
+        state.totalMessagesExchanged = len(final_history)
 
         return HoneypotResponse(
             sessionId=sid,
@@ -415,6 +418,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
         updated_history = payload.conversationHistory + [payload.message]
+        final_history = updated_history + [agent_reply_obj]
+        state.totalMessagesExchanged = len(final_history)
 
         # Diagnostic Note
         error_note = f"⚠️ BRAIN OFFLINE: {str(e)}. Heuristic Shield active."
