@@ -187,6 +187,7 @@ class HoneypotResponse(BaseModel):
     costAnalysis: CostAnalysis = CostAnalysis()
     agentPerformance: AgentPerformance = AgentPerformance()
     systemMetrics: SystemMetrics = SystemMetrics()
+    conversationHistory: List[MessageObj] = []
 
 # --- PROMPT ---
 SYSTEM_PROMPT = """
@@ -336,14 +337,18 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if state.scamDetected and (is_finished or intelligence_count >= 3 or state.totalMessagesExchanged >= 8):
             asyncio.create_task(send_final_result(state))
 
+        # Prepare updated history to return
+        updated_history = payload.conversationHistory + [payload.message]
+        agent_reply_obj = MessageObj(sender="user", text=result.get("reply", "Hello?"), timestamp=int(asyncio.get_event_loop().time() * 1000))
+
         return HoneypotResponse(
             sessionId=sid,
-            status="success", 
-            reply=result.get("reply", "I'm sorry, I didn't quite catch that. What was it about?"),
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
             extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
             agentNotes=state.agentNotes,
+            status="success", 
+            reply=agent_reply_obj.text,
             confidenceScore=result.get("confidenceScore", 0.95 if state.scamDetected else 0.1),
             riskLevel=result.get("riskLevel", "HIGH" if state.scamDetected else "LOW"),
             scamCategory=result.get("scamCategory", "Bank Fraud" if state.scamDetected else "Benign"),
@@ -367,7 +372,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
                 intelligenceQualityScore=85 if state.scamDetected else 0,
                 extractionAccuracyScore=0.91
             ),
-            systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400)
+            systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
+            conversationHistory=updated_history + [agent_reply_obj]
         )
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
@@ -385,18 +391,22 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if state.scamDetected and (state.totalMessagesExchanged >= 5):
             asyncio.create_task(send_final_result(state))
 
+        agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
+        updated_history = payload.conversationHistory + [payload.message]
+
         return HoneypotResponse(
             sessionId=sid,
-            status="success", 
-            reply=local_reply,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
             extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
             agentNotes="🛡️ SENTINEL SHIELD: Autonomous Persona Failover Active.",
+            status="success", 
+            reply=local_reply,
             confidenceScore=0.9 if state.scamDetected else 0.1,
             riskLevel="HIGH" if state.scamDetected else "LOW",
             scamCategory="Fraud Alert" if state.scamDetected else "Benign",
-            threatScore=90 if state.scamDetected else 10
+            threatScore=90 if state.scamDetected else 10,
+            conversationHistory=updated_history + [agent_reply_obj]
         )
 
 # Mount static files AFTER all API routes to serve the Angular app
