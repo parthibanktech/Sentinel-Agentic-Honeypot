@@ -395,37 +395,21 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
     lower_input = combined_input.lower()
     
-    # 0. Identify phones first to exclude them from bank accounts
+    # Precision Extraction
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
     clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
 
-    # 1. Dynamic Bank + Account Pairing (Non-Hardcoded)
-    paired_accounts = []
-    all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
-    for num in all_numbers:
-        # EXCLUSION: If it's a 10-digit number starting with 6-9, it's a phone, not an account
-        if len(num) == 10 and num[0] in '6789' and num in clean_phones:
-            continue
-            
-        start_idx = combined_input.find(num)
-        # Scan 80 chars before for potential entity names (Capitalized words)
-        context_before = combined_input[max(0, start_idx-80):start_idx]
-        potential_bank = re.findall(r'\b[A-Z][a-zA-Z]+\b', context_before)
-        
-        bank_name = "Account"
-        if potential_bank:
-            # Filter out names that are definitely not banks/entities
-            filtered = [b for b in potential_bank if b.lower() not in ["raj", "alex", "employee", "manager", "dear", "sir", "hi", "who", "where", "my", "your"]]
-            if filtered: bank_name = filtered[-1]
-        
-        paired_accounts.append(f"{bank_name}: {num}")
+    # Capture suspected account numbers (10-18 digits)
+    potential_accounts = list(set(re.findall(r'\b\d{10,18}\b', combined_input)))
+    # Remove phones from account list
+    safe_accounts = [acc for acc in potential_accounts if acc not in clean_phones]
 
     heuristic_intel = {
-        "bankAccounts": list(set(paired_accounts)),
+        "bankAccounts": safe_accounts,
         "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank", "account", "support", "link", "id", "fraud"] if k in lower_input]))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank"] if k in lower_input]))
     }
     state.update_intelligence(heuristic_intel)
 
@@ -519,7 +503,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             conversationHistory=state.history
         )
         print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
-        print(final_response.json(indent=2))
+        print(json.dumps(final_response.dict(), indent=2))
         return final_response
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
@@ -527,11 +511,20 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc"])
         state.scamDetected = is_fraud or state.scamDetected
         
-        local_reply = "Oh, hello there. It's nice to hear from someone, but my hearing aid is a bit loud... may I ask who is this and how did you get my number?"
-        if "how are you" in combined_input:
-            local_reply = "I'm doing quite well, thank you! Just putting on the kettle. How are you doing?"
-        elif is_fraud:
-            local_reply = "Oh dear, my pension account? Is it safe? My grandson told me about those scammers... what should I do?"
+        # DYNAMIC FAILOVER PERSONA (Non-Repetitive)
+        responses = [
+            "Oh dear, my pension account? My grandson mentioned something about this... what do I need to do exactly?",
+            "I'm so sorry, I'm just looking for my glasses. Did you say my account is blocked? How did this happen?",
+            "I'm a bit confused, Raj. Is this about the SBI branch near the park? Can you tell me your name again?",
+            "I have my diary here... let me see. My grandson says I shouldn't give details over the phone, are you sure this is official?",
+            "Can you wait a moment? Something is boiling on the stove. I hope this isn't a scam, I'm just a teacher."
+        ]
+        local_reply = responses[state.totalMessagesExchanged % len(responses)]
+        
+        if "how are you" in lower_input:
+            local_reply = "I'm doing well, just about to have some tea. thank you for asking. Who is this again?"
+        elif not is_fraud:
+            local_reply = "Bless you, I think you have the wrong number... I don't know who you are."
 
         # Update History in Failover
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
