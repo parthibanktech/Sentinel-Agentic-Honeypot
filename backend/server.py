@@ -460,7 +460,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
         save_sessions(sessions) # PERSIST
 
-        return HoneypotResponse(
+        final_response = HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
@@ -494,6 +494,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
             conversationHistory=state.history
         )
+        print(f"[API_RESPONSE] {final_response.json()}")
+        return final_response
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
@@ -517,7 +519,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if "quota" in str(e).lower() or "billing" in str(e).lower():
             error_note = "⚠️ KEY EXPIRED: Your OpenAI Key has no credits. Using Heuristic Persona."
 
-        return HoneypotResponse(
+        fail_response = HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
@@ -544,6 +546,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=100, systemLatencyMs=50),
             conversationHistory=state.history
         )
+        print(f"[API_FAILOVER_RESPONSE] {fail_response.json()}")
+        return fail_response
 
 # Mount static files AFTER all API routes to serve the Angular app
 if static_dir and os.path.exists(static_dir):
