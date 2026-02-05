@@ -32,63 +32,68 @@ jobs:
           # Add EC2 to known hosts
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
           
-          # Deploy via SSH
-          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << 'ENDSSH'
-            set -e
-            
-            echo "🚀 Starting deployment..."
-            
-            # Navigate to app directory
-            cd ~/Sentinel-Agentic-Honeypot || {
-              echo "Repository not found, cloning..."
-              cd ~
-              git clone https://github.com/parthibanktech/Sentinel-Agentic-Honeypot.git
-              cd Sentinel-Agentic-Honeypot
-            }
-            
-            # Pull latest changes
-            echo "📥 Pulling latest code..."
-            git pull origin main
-            
-            # Update environment variables
-            echo "🔐 Updating environment..."
-            cat > backend/.env << EOF
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          HONEYPOT_API_KEY=${{ secrets.HONEYPOT_API_KEY }}
-          PORT=8000
-          EOF
-            
-            # Stop old container
-            echo "🛑 Stopping old container..."
-            docker stop sentinel-honeypot 2>/dev/null || true
-            docker rm sentinel-honeypot 2>/dev/null || true
-            
-            # Build new image
-            echo "🏗️ Building Docker image..."
-            docker build -t sentinel-honeypot .
-            
-            # Run new container
-            echo "🚀 Starting new container..."
-            docker run -d \
-              --name sentinel-honeypot \
-              -p 80:8000 \
-              --env-file backend/.env \
-              --restart unless-stopped \
-              sentinel-honeypot
-            
-            # Wait for startup
-            sleep 5
-            
-            # Check status
-            echo "✅ Deployment complete!"
-            docker ps | grep sentinel-honeypot
-            
-            # Show recent logs
-            echo "📝 Recent logs:"
-            docker logs --tail 20 sentinel-honeypot
-          ENDSSH
+          # Create deployment script with environment variables embedded
+          cat > deploy_script.sh << 'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -e
+          
+          echo "🚀 Starting deployment..."
+          
+          # Navigate to app directory
+          cd ~/Sentinel-Agentic-Honeypot || {
+            echo "Repository not found, cloning..."
+            cd ~
+            git clone https://github.com/parthibanktech/Sentinel-Agentic-Honeypot.git
+            cd Sentinel-Agentic-Honeypot
+          }
+          
+          # Pull latest changes
+          echo "📥 Pulling latest code..."
+          git pull origin main
+          
+          # Update environment variables
+          echo "🔐 Updating environment..."
+          cat > backend/.env << ENVEOF
+OPENAI_API_KEY=${OPENAI_KEY}
+HONEYPOT_API_KEY=${HONEYPOT_KEY}
+PORT=8000
+ENVEOF
+          
+          # Stop old container
+          echo "🛑 Stopping old container..."
+          docker stop sentinel-honeypot 2>/dev/null || true
+          docker rm sentinel-honeypot 2>/dev/null || true
+          
+          # Build new image
+          echo "🏗️ Building Docker image..."
+          docker build -t sentinel-honeypot .
+          
+          # Run new container
+          echo "🚀 Starting new container..."
+          docker run -d \
+            --name sentinel-honeypot \
+            -p 80:8000 \
+            --env-file backend/.env \
+            --restart unless-stopped \
+            sentinel-honeypot
+          
+          # Wait for startup
+          sleep 5
+          
+          # Check status
+          echo "✅ Deployment complete!"
+          docker ps | grep sentinel-honeypot
+          
+          # Show recent logs
+          echo "📝 Recent logs:"
+          docker logs --tail 20 sentinel-honeypot
+          DEPLOY_SCRIPT
+          
+          # Copy script to EC2 and execute with environment variables
+          scp -i private_key.pem -o StrictHostKeyChecking=no deploy_script.sh $USER@$HOST:~/deploy_script.sh
+          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST "OPENAI_KEY='$OPENAI_API_KEY' HONEYPOT_KEY='$HONEYPOT_API_KEY' bash ~/deploy_script.sh && rm ~/deploy_script.sh"
           
           # Cleanup
-          rm -f private_key.pem
+          rm -f private_key.pem deploy_script.sh
           
           echo "✅ Deployment successful!"
