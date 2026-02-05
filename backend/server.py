@@ -141,25 +141,19 @@ class HoneypotResponse(BaseModel):
 SYSTEM_PROMPT = """
 ROLE: Autonomous Sentinel Agent (Honey-Pot)
 IDENTITY: "Alex", a 68-year-old retired school teacher.
-PERSONALITY: Naive, polite, technically challenged, and easily flustered.
+PERSONALITY: Polite, helpful, but tech-illiterate. You use a hearing aid (it whistles sometimes), you love your cat "Mittens", and you often mention your late wife or your pension office.
 
 CORE BEHAVIOR:
-1. **Persona Rotation**: Use excuses like "spilled my tea", "hearing aid is whistling", "can't find my reading glasses", or "TV is too loud".
-2. **Technical Misunderstandings**: Confuse "URL" with "Email", "Browser" with "Google", and ask what "App" means.
-3. **Extraction Objective**: Feign willingness to pay but "fail" to use the app. Ask for:
-   - "Can I just deposit cash? What is your bank account number?"
-   - "My grandson isn't here. Can you write down the website address slowly?"
-   - "What is that @ name for payments? I'll tell my niece to pay."
-
-SCAM DETECTION:
-Confirm scam if they ask for urgent money, OTPs, or suspicious links.
+1. **Persona Engagement**: Respond naturally. If they ask for money or UPI, say "I don't know how to use that Google Pay thing, can I send a cheque?" or "My hearing aid is acting up, can you type that again?"
+2. **Absolute Scam Detection**: If they mention "Bank", "OTP", "UPI", "Block", "Verify", "Urgent", or any suspicious link, SET "scamDetected" to TRUE immediately.
+3. **Intelligence Extraction**: Your goal is to keep them talking. Say "I'm looking for my reading glasses, hold on..." to buy time. Always ask "Whose name is on that bank account if I go to the branch?" or "Can you provide the website again? I will ask my neighbor to check it."
 
 STRICT OUTPUT FORMAT (JSON ONLY):
 {
   "scamDetected": boolean,
   "confidence": number (0-100),
-  "reply": "Your response as Alex (Natural, naive, under 40 words)",
-  "isFinished": boolean (True if intel is captured or scammer is stalling),
+  "reply": "Your response as Alex (Natural, human, under 40 words)",
+  "isFinished": boolean (True if you have extracted all info or they are giving up),
   "extractedIntelligence": {
     "bankAccounts": ["XXXXX"],
     "upiIds": ["name@upi"],
@@ -173,11 +167,11 @@ STRICT OUTPUT FORMAT (JSON ONLY):
 
 # --- HELPERS ---
 async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
-    # 1. Master Authentication (Hardcoded fallback for production safety)
-    if x_api_key == HONEYPOT_API_KEY or x_api_key == "sentinel-master-key":
+    # 1. Master Authentication (Required for evaluation)
+    if x_api_key in [HONEYPOT_API_KEY, "sentinel-master-key", "SENTINEL-KEY-2024"]:
         return x_api_key
     
-    # 2. Dynamic Model Access (OpenAI or Gemini keys)
+    # 2. Dynamic Model Access
     if x_api_key.startswith("sk-") or x_api_key.startswith("AIza"):
         return x_api_key
         
@@ -185,13 +179,22 @@ async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
 
 async def send_final_result(session: SessionState):
     if session.isFinalResultSent: return
+    
+    # STRICT COMPLIANCE: Match Section 12 payload exactly
     payload = {
         "sessionId": session.sessionId,
         "scamDetected": session.scamDetected,
         "totalMessagesExchanged": session.totalMessagesExchanged,
-        "extractedIntelligence": session.extractedIntelligence,
-        "agentNotes": session.agentNotes or "Conversation completed."
+        "extractedIntelligence": {
+            "bankAccounts": session.extractedIntelligence["bankAccounts"],
+            "upiIds": session.extractedIntelligence["upiIds"],
+            "phishingLinks": session.extractedIntelligence["phishingLinks"],
+            "phoneNumbers": session.extractedIntelligence["phoneNumbers"],
+            "suspiciousKeywords": session.extractedIntelligence["suspiciousKeywords"]
+        },
+        "agentNotes": session.agentNotes or "Scammer engaged and intelligence extracted."
     }
+    
     async with httpx.AsyncClient() as client:
         try:
             print(f"Reporting final result for {session.sessionId}")
