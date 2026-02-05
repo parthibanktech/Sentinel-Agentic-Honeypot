@@ -457,10 +457,17 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
       this.isProcessing.set(false);
 
       // 3. Update Intelligence immediately
-      this.updateIntelligence({
-        ...response.extractedIntelligence,
-        confidence: response.confidenceScore
-      });
+      if (response.extractedIntelligence) {
+        this.intelligence.update(current => ({
+          ...current,
+          bankAccounts: Array.from(new Set([...current.bankAccounts, ...(response.extractedIntelligence.bankAccounts || [])])),
+          upiIds: Array.from(new Set([...current.upiIds, ...(response.extractedIntelligence.upiIds || [])])),
+          phishingLinks: Array.from(new Set([...current.phishingLinks, ...(response.extractedIntelligence.phishingLinks || [])])),
+          phoneNumbers: Array.from(new Set([...current.phoneNumbers, ...(response.extractedIntelligence.phoneNumbers || [])])),
+          suspiciousKeywords: Array.from(new Set([...current.suspiciousKeywords, ...(response.extractedIntelligence.suspiciousKeywords || [])])),
+          socialEngineeringTactics: Array.from(new Set([...current.socialEngineeringTactics, ...(response.extractedIntelligence.socialEngineeringTactics || [])]))
+        }));
+      }
       this.confidenceScore.set(response.confidenceScore);
       this.confidenceHistory.update(h => [...h, response.confidenceScore]);
 

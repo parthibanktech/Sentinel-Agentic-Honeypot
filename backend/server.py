@@ -254,20 +254,35 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         
         result = json.loads(content)
         
-        # Update session state with new data
-        state.scamDetected = result.get("scamDetected", state.scamDetected)
-        state.update_intelligence(result.get("extractedIntelligence", {}))
-        state.agentNotes = result.get("agentNotes", state.agentNotes)
+        # --- ENHANCED INTENT VERIFICATION ---
+        # Ensure confidence and scamDetected are logically synced
+        is_scam = result.get("scamDetected", False)
+        confidence = result.get("confidence", 0)
         
-        # Trigger callback if scam is confirmed
-        if state.scamDetected and (result.get("isFinished") or state.totalMessagesExchanged >= 15):
+        # Hard-flag obvious patterns if AI is too conservative
+        scam_patterns = ["bit.ly", "verify", "hdfc", "otp", "blocked", "upi", "suspend", "account"]
+        if any(p in payload.message.text.lower() for p in scam_patterns):
+            is_scam = True
+            confidence = max(confidence, 90)
+
+        # Update session state
+        state.scamDetected = is_scam
+        state.update_intelligence(result.get("extractedIntelligence", {}))
+        
+        # Build professional agent notes
+        tactics = result.get("extractedIntelligence", {}).get("socialEngineeringTactics", [])
+        notes = f"• Pattern: {', '.join(tactics) or 'Initial Engagement'}\n• Intel: {len(state.extractedIntelligence['phoneNumbers'])} phone(s), {len(state.extractedIntelligence['bankAccounts'])} account(s) captured."
+        state.agentNotes = result.get("agentNotes", notes)
+        
+        # Trigger callback if scam confirmed (Section 12 Compliance)
+        if state.scamDetected:
             asyncio.create_task(send_final_result(state))
             
         return HoneypotResponse(
             status="success", 
             reply=result.get("reply", "Hello?"),
             scamDetected=state.scamDetected,
-            confidenceScore=result.get("confidence", state.scamDetected and 85 or 10),
+            confidenceScore=confidence,
             agentNotes=state.agentNotes,
             extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
         )
