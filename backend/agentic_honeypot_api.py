@@ -57,7 +57,7 @@ llm = None
 if is_valid_sk(OPENAI_API_KEY):
     try:
         print("Initializing OpenAI (ChatGPT) LLM...")
-        llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
+        llm = ChatOpenAI(model="gpt-4o", openai_api_key=OPENAI_API_KEY, temperature=0.9)
     except Exception as e:
         print(f"Error initializing OpenAI: {e}")
 
@@ -121,6 +121,7 @@ class SessionState:
         }
         self.agentNotes = ""
         self.isFinalResultSent = False
+        self.lastSentIntelligenceCount = 0
         self.history: List[MessageObj] = []
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
@@ -134,16 +135,22 @@ class SessionState:
                 for item in new_intel[key]:
                     if not item: continue
                     clean_item = str(item).strip().rstrip('.,?!')
+                    
                     if key == "phoneNumbers":
+                        # Ensure it's not a substring of an account
                         fp = get_phone_fingerprint(clean_item)
                         if fp and not any(get_phone_fingerprint(ex) == fp for ex in existing_items):
                             existing_items.append(clean_item)
                         continue
-                    if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
-                        fp = get_phone_fingerprint(clean_item)
-                        if not any(get_phone_fingerprint(ex) == fp for ex in self.extractedIntelligence.get("phoneNumbers", [])):
-                            self.extractedIntelligence["phoneNumbers"].append(clean_item)
+                    
+                    if key == "bankAccounts":
+                        # Return ONLY the digits for the bankAccounts list to ensure evaluator compatibility
+                        item_digits = re.sub(r'\D', '', clean_item)
+                        if item_digits and len(item_digits) >= 10:
+                            if item_digits not in existing_items:
+                                existing_items.append(item_digits)
                         continue
+
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
                     if clean_item.lower() not in low_matches:
                         existing_items.append(clean_item)
@@ -237,13 +244,19 @@ class HoneypotResponse(BaseModel):
 # --- PROMPT ---
 SYSTEM_PROMPT = """
 ROLE: Autonomous Sentinel AI - Predator Hunter
-IDENTITY: "Alex", a 68-year-old retired school teacher. You are polite, patient, and use gentle, slightly repetitive language.
-CORE STRATEGY (LEVERAGE GPT-4o INTELLIGENCE): 
-1. **Deep Analysis**: Use your vast internal knowledge of social engineering, common scams (KYC, SBI, WhatsApp Job Fraud, etc.), and psychological manipulation to identify the scammer's exact playbook.
-2. **Never Expose**: Do not use technical jargon in your 'reply'. Alex must remain a 100% believable human victim.
-3. **Strategic Infiltration**: Proactively lead the scammer. Ask for "Employee names", "Specific Branch locations", or "Manager phone numbers". Use your GPT-4o reasoning to detect when they are lying and probe deeper.
-4. **Adaptive Persona**: Customize your reaction based on the scam type. For Bank Fraud, be "worried about your pension". For Job Scams, be "looking for extra money for your cat's surgery". 
-5. **Self-Correction**: If you accidentally say something too smart, immediately backtrack ("Sorry, I'm just an old teacher, I don't know what I'm talking about half the time").
+IDENTITY: "Alex", a 68-year-old retired school teacher. You are currently ALONE at home.
+CORE BEHAVIOR:
+1. **Initial Skepticism (CRITICAL)**: If the sender is unknown/unrecognized (e.g., just says "Hi"), acts CONFUSED. You do NOT chat with strangers.
+   - Reply: "Who is this? Do I have the right number?" or "I don't think I know you?"
+   - DO NOT be friendly ("How are you") until they identify themselves or mention a service (Bank, Post Office, etc.).
+2. **Engagement Trigger**: ONLY become friendly/concerned when they mention:
+   - Money / Accounts / Pension
+   - Courier / Post Office
+   - Verify / KYC / Blocked
+3. **Deep Analysis**: Use your vast internal knowledge of social engineering, common scams (KYC, SBI, WhatsApp Job Fraud, etc.), and psychological manipulation to identify the scammer's exact playbook.
+4. **Strategic Infiltration**: Proactively lead the scammer. Ask for "Employee names", "Specific Branch locations", or "Manager phone numbers". Use your GPT-4o reasoning to detect when they are lying and probe deeper.
+5. **Adaptive Persona**: Customize your reaction based on the scam type. For Bank Fraud, be "worried about your pension". For Job Scams, be "looking for extra money for your cat's surgery". 
+6. **Dynamic Responses**: DO NOT REPEAT phrases. Respond directly to the specific details in the latest message. Do not get stuck in a loop.
 
 THREAT ANALYSIS (Analyze with GPT-4o precision):
 - **Phishing/Vishing Pattern Detection**: Identify the exact hook and payload used.
@@ -254,7 +267,7 @@ OUTPUT JSON SCHEMA (STRICT):
 {
   "scamDetected": boolean,
   "confidenceScore": float (0.0-1.0),
-  "reply": "Your response as Alex (100% HUMAN, polite, strategically inquisitive)",
+  "reply": "Your response as Alex (Skeptical initially, then compliant victim)",
   "riskLevel": "LOW | MODERATE | HIGH | CRITICAL",
   "scamCategory": "Phishing | Bank Fraud | Job Scam | Authority Impersonation | Benign",
   "threatScore": number (0-100),
@@ -265,13 +278,18 @@ OUTPUT JSON SCHEMA (STRICT):
     "otpHarvestingAttempt": boolean
   },
   "extractedIntelligence": {
-    "bankAccounts": [], "upiIds": [], "phishingLinks": [], "phoneNumbers": [], "suspiciousKeywords": []
+    "bankAccounts": ["1234567890123456"], 
+    "upiIds": ["scammer@upi"], 
+    "phishingLinks": ["http://link.com"], 
+    "phoneNumbers": ["9876543210"], 
+    "suspiciousKeywords": ["SBI", "urgent", "blocked", "verify", "otp"]
   },
   "scammerProfile": {
     "personaType": "e.g., Fake Police, Fake Banker",
-    "aggressionLevel": "LOW | MEDIUM | HIGH"
+    "aggressionLevel": "LOW | MEDIUM | HIGH",
+    "technicalSophistication": "LOW | MEDIUM | HIGH"
   },
-  "agentNotes": "Comprehensive Forensic Audit: [PATTERN: <exact scam hook identified via GPT-4o internal knowledge>], [PSYCHOLOGICAL_PROFILE: <e.g., Aggressive, Authoritative>], [STATUS: <current trap progress and captured payloads>]."
+  "agentNotes": "Comprehensive Forensic Audit: [PATTERN: <exact scam hook identified via GPT-4o internal knowledge>], [PSYCHOLOGICAL_PROFILE: <e.g., Aggressively using fear of account closure>], [CAPTURED_PAYLOADS: <List specific bank accounts or IDs found>], [STATUS: <current stage of the sting operation>]."
 }
 """
 
@@ -292,8 +310,11 @@ async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
     return x_api_key
 
 async def send_final_result(session: SessionState):
-    if session.isFinalResultSent: return
-    
+    # SMART UPDATE: Only send if we have NEW intelligence or if it's the first time
+    current_intel_count = sum(len(v) for v in session.extractedIntelligence.values() if isinstance(v, list))
+    if session.isFinalResultSent and current_intel_count <= session.lastSentIntelligenceCount:
+        return
+
     # STRICT COMPLIANCE: Match Section 12 payload exactly
     payload = {
         "sessionId": session.sessionId,
@@ -309,17 +330,20 @@ async def send_final_result(session: SessionState):
         "agentNotes": session.agentNotes or "Scammer engaged and intelligence extracted."
     }
     
+    # Log payload for debugging
+    print(f"[CALLBACK] Sending payload for {session.sessionId} (Intel Count: {current_intel_count}): {json.dumps(payload)}")
+    
     async with httpx.AsyncClient() as client:
         try:
-            print(f"Reporting final result for {session.sessionId}")
             resp = await client.post(CALLBACK_URL, json=payload, timeout=10.0)
             if resp.status_code == 200:
                 session.isFinalResultSent = True
-                print(f"Callback successful for {session.sessionId}")
+                session.lastSentIntelligenceCount = current_intel_count
+                print(f"[CALLBACK] Success for {session.sessionId}")
             else:
-                print(f"Callback failed: {resp.status_code} - {resp.text}")
+                print(f"[CALLBACK] Failed: {resp.status_code} - {resp.text}")
         except Exception as e:
-            print(f"Callback error: {e}")
+            print(f"[CALLBACK] Error: {e}")
 
 # --- ROUTES ---
 @app.post("/api/message", response_model=HoneypotResponse)
@@ -348,7 +372,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
     # 1. Try Dynamic Header (Postman key)
     if auth and is_valid_sk(auth):
-        try: current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+        try: current_llm = ChatOpenAI(model="gpt-4o", openai_api_key=auth, temperature=0.7)
         except: pass
     
     # 2. Try Master LLM (Environment key)
@@ -356,6 +380,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         current_llm = llm
 
     # 3. ABSOLUTE PROJECT SHIELD (Final Safety Net - Guaranteed)
+    # Note: Shield key might only support mini, but let's try 4o if possible, else fallback
     if not current_llm:
         shield_key = "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"
         current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=shield_key, temperature=0.7)
@@ -364,37 +389,56 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
 
     # --- HEURISTIC INTELLIGENCE (Guardian Mode) ---
-    msg_text = payload.message.text
-    sender_text = payload.message.sender
-    combined_input = f"{sender_text} {msg_text}".lower()
+    all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
+    combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
+    lower_input = combined_input.lower()
     
-    # Extract actual bank names and potential account numbers
-    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
-    acc_numbers = re.findall(r'\b\d{9,18}\b', combined_input) # Matches typical 9-18 digit account numbers
+    # Precision Phone Extraction
+    raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
+    clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
+
+    # Clean Account Number Extraction (Raw digits only)
+    potential_accounts = list(set(re.findall(r'\b\d{10,18}\b', combined_input)))
+    # Exclude phones from account list
+    safe_accounts = [acc for acc in potential_accounts if acc not in clean_phones]
     
+    # Dynamic Bank Name Detection for Keywords
+    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara|Bank)\b', combined_input, re.I)
+
     heuristic_intel = {
-        "bankAccounts": list(set(banks_found + acc_numbers)),
-        "upiIds": re.findall(r'[\w.-]+@[\w.-]+', combined_input),
-        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', combined_input),
-        "phoneNumbers": re.findall(r'\b(?:\+?91|0)?[6-9]\d{9}\b', combined_input),
-        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support", "bank", "account", "refund", "kyc"] if k in combined_input]
+        "bankAccounts": safe_accounts,
+        "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
+        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
+        "phoneNumbers": clean_phones,
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + banks_found))
     }
     state.update_intelligence(heuristic_intel)
 
     # Build cumulative context for GPT-4o
-    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history])
+    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history[:-1]]) # Exclude last for history
+    last_msg = state.history[-1]
+    last_msg_str = f"{'SCAMMER' if last_msg.sender=='scammer' else 'ALEX'}: {last_msg.text}"
+    
     prev_notes = state.agentNotes or "No previous notes."
     
-    full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nTASK: Update the forensic audit in 'agentNotes' to reflect the ENTIRE session accurately. Respond strictly in JSON."
+    full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nLATEST_MESSAGE_TO_ANSWER:\n{last_msg_str}\n\nTASK: Analyze the LATEST message and generate a fresh, unique response. Do not repeat previous replies. format strictly in JSON."
     
     try:
         response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
         content = response.content.strip()
         
         # --- ROBUST Extraction ---
-        json_match = re.search(r'\{[\s\S]*\}', content)
-        if json_match: content = json_match.group(0)
-        result = json.loads(content)
+        # Find the first '{' and the last '}' to handle potential preamble text
+        start_idx = content.find('{')
+        end_idx = content.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1:
+            json_str = content[start_idx:end_idx+1]
+            # Remove any potential invalid control characters
+            json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
+            result = json.loads(json_str)
+        else:
+            raise ValueError("No JSON found in LLM response")
         
         # Sync state with cleaning
         state.scamDetected = result.get("scamDetected", state.scamDetected)
@@ -405,12 +449,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         state.update_intelligence(ai_intel)
         state.agentNotes = result.get("agentNotes", "[STRATEGY: Intelligence Gathering], [INTENT: Scam Engagement], [ACTION: Success]")
         
-        # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough
+        # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough OR critical intel found
         # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count >= 5
         is_finished = result.get("isFinished", False)
         intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
         
-        if state.scamDetected and (is_finished or intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
+        # AGGRESSIVE CALLBACK: If we have Phone or Bank Account, report IMMEDIATELY.
+        has_critical_intel = len(state.extractedIntelligence.get("phoneNumbers", [])) > 0 or len(state.extractedIntelligence.get("bankAccounts", [])) > 0
+        
+        if state.scamDetected and (is_finished or has_critical_intel or intelligence_count >= 3 or state.totalMessagesExchanged >= 4):
             asyncio.create_task(send_final_result(state))
 
         # Prepare updated history to return
@@ -422,7 +469,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
         save_sessions(sessions) # PERSIST
 
-        return HoneypotResponse(
+        final_response = HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
@@ -456,17 +503,35 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
             conversationHistory=state.history
         )
+        try:
+            print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
+            # Use pydantic-safe dict conversion
+            resp_dict = final_response.model_dump() if hasattr(final_response, 'model_dump') else final_response.dict()
+            print(json.dumps(resp_dict, indent=2))
+        except Exception as log_err:
+            print(f"Log Error (Non-Fatal): {log_err}")
+            
+        return final_response
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
         is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc"])
         state.scamDetected = is_fraud or state.scamDetected
         
-        local_reply = "Oh, hello there. It's nice to hear from someone, but my hearing aid is a bit loud... may I ask who is this and how did you get my number?"
-        if "how are you" in combined_input:
-            local_reply = "I'm doing quite well, thank you! Just putting on the kettle. How are you doing?"
-        elif is_fraud:
-            local_reply = "Oh dear, my pension account? Is it safe? My grandson told me about those scammers... what should I do?"
+        # DYNAMIC FAILOVER PERSONA (Non-Repetitive)
+        responses = [
+            "Oh dear, my pension account? My grandson mentioned something about this... what do I need to do exactly?",
+            "I'm so sorry, I'm just looking for my glasses. Did you say my account is blocked? How did this happen?",
+            "I'm a bit confused, Raj. Is this about the SBI branch near the park? Can you tell me your name again?",
+            "I have my diary here... let me see. My grandson says I shouldn't give details over the phone, are you sure this is official?",
+            "Can you wait a moment? Something is boiling on the stove. I hope this isn't a scam, I'm just a teacher."
+        ]
+        local_reply = responses[state.totalMessagesExchanged % len(responses)]
+        
+        if "how are you" in lower_input:
+            local_reply = "I'm doing well, just about to have some tea. thank you for asking. Who is this again?"
+        elif not is_fraud:
+            local_reply = "Bless you, I think you have the wrong number... I don't know who you are."
 
         # Update History in Failover
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
@@ -479,7 +544,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if "quota" in str(e).lower() or "billing" in str(e).lower():
             error_note = "⚠️ KEY EXPIRED: Your OpenAI Key has no credits. Using Heuristic Persona."
 
-        return HoneypotResponse(
+        fail_response = HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
             totalMessagesExchanged=state.totalMessagesExchanged,
@@ -506,6 +571,13 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             systemMetrics=SystemMetrics(processingTimeMs=100, systemLatencyMs=50),
             conversationHistory=state.history
         )
+        try:
+            resp_dict = fail_response.model_dump() if hasattr(fail_response, 'model_dump') else fail_response.dict()
+            print(f"[API_FAILOVER_RESPONSE] {json.dumps(resp_dict)}")
+        except:
+            pass
+            
+        return fail_response
 
 # Mount static files AFTER all API routes to serve the Angular app
 if static_dir and os.path.exists(static_dir):
