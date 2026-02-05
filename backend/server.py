@@ -266,18 +266,33 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         )
     except Exception as e:
         print(f"Agent Processing Error: {str(e)}")
-        # If processing fails, use a high-quality persona fallback instead of a generic error
+        
+        # --- HEURISTIC FALLBACK (Watchdog) ---
+        # If AI brain fails, use local keyword rules to at least detect some intent
+        scam_keywords = ["bank", "hdfc", "otp", "verify", "block", "locked", "urgent", "pan", "upi", "pay", "click", "bit.ly"]
+        msg_lower = payload.message.text.lower()
+        has_keywords = any(kw in msg_lower for kw in scam_keywords)
+        
+        confidence = 0
+        notes = "Sentinel processing... Establishing threat vectors."
+        if has_keywords:
+            confidence = 85
+            notes = "🛡️ HEURISTIC MATCH: Suspicious financial keywords detected. Sentinel standing by."
+            state.scamDetected = True
+        
         fallback_replies = [
             "Oh dear, I'm having a bit of trouble with my phone. What was it you were saying about the bank?",
             "I'm sorry, I must have pressed the wrong button. Could you explain that again slowly?",
-            "My grandson usually helps me with this... what do I need to click for the payment?"
+            "My reading glasses are missing... did you say something about my account being blocked?"
         ]
         import random
         return HoneypotResponse(
             status="success", 
             reply=random.choice(fallback_replies),
-            scamDetected=False,
-            agentNotes="Agent processing a request. Intelligence extraction in progress..."
+            scamDetected=state.scamDetected,
+            confidenceScore=confidence,
+            agentNotes=notes,
+            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
         )
 
 # Mount static files AFTER all API routes to serve the Angular app
