@@ -87,26 +87,37 @@ class SessionState:
         self.history: List[MessageObj] = []
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
+        def get_phone_fingerprint(p):
+            # Normalizes phone numbers to last 10 digits for comparison
+            digits = re.sub(r'\D', '', str(p))
+            return digits[-10:] if len(digits) >= 10 else digits
+
         for key in self.extractedIntelligence:
             if key in new_intel and isinstance(new_intel[key], list):
-                # PRO-MODE: Advanced cleaning, case-insensitive deduplication and noise filtering
-                existing_lower = {str(x).lower().rstrip('.') for x in self.extractedIntelligence[key]}
+                existing_items = self.extractedIntelligence[key]
+                
                 for item in new_intel[key]:
                     if not item: continue
-                    # Strip trailing punctuation (common in UPI/Links from sentences)
                     clean_item = str(item).strip().rstrip('.,?!')
-                    low_item = clean_item.lower()
                     
+                    # Special Logic for Phone Numbers (Deduplicate +91 vs raw)
+                    if key == "phoneNumbers":
+                        fingerprint = get_phone_fingerprint(clean_item)
+                        if fingerprint and not any(get_phone_fingerprint(ex) == fingerprint for ex in existing_items):
+                            existing_items.append(clean_item)
+                        continue
+
                     # Prevent phone numbers from sneaking into bank accounts
                     if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
-                        if "phoneNumbers" in self.extractedIntelligence:
-                            if low_item not in {x.lower() for x in self.extractedIntelligence["phoneNumbers"]}:
-                                self.extractedIntelligence["phoneNumbers"].append(clean_item)
+                        fingerprint = get_phone_fingerprint(clean_item)
+                        if not any(get_phone_fingerprint(ex) == fingerprint for ex in self.extractedIntelligence.get("phoneNumbers", [])):
+                            self.extractedIntelligence["phoneNumbers"].append(clean_item)
                         continue
-                        
-                    if low_item and low_item not in existing_lower:
-                        self.extractedIntelligence[key].append(clean_item)
-                        existing_lower.add(low_item)
+                    
+                    # General deduplication for other fields (UPI, Links)
+                    low_matches = {str(x).lower().rstrip('.') for x in existing_items}
+                    if clean_item.lower() not in low_matches:
+                        existing_items.append(clean_item)
 
 class MessageObj(BaseModel):
     sender: str
