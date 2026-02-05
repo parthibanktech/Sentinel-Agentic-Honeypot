@@ -147,28 +147,38 @@ class SessionState:
                         item_str = str(item).strip().rstrip('.,?!')
                         low_item = item_str.lower()
                         
-                        # DEDUPLICATION: If we already have this exact string, skip
-                        if any(str(ex).lower() == low_item for ex in existing_items):
+                        # Re-route accidental Emails/UPIs from LLM if they are in the wrong key
+                        if "@" in item_str and "Email:" not in item_str and "UPI:" not in item_str:
+                            if any(h in item_str for h in ["@upi", "@oksbi", "@okicici", "@ybl"]):
+                                item_str = f"UPI: {item_str}"
+                            else:
+                                item_str = f"Email: {item_str}"
+                        
+                        if any(str(ex).lower() == item_str.lower() for ex in existing_items):
                             continue
                             
-                        # If it's a number, check if we have it inside a labeled string already
+                        # Digit-based deduplication
                         item_digits = re.sub(r'\D', '', item_str)
                         if item_digits and len(item_digits) >= 10:
                             match_idx = -1
                             for idx, ex in enumerate(existing_items):
-                                if item_digits in str(ex):
+                                ex_digits = re.sub(r'\D', '', str(ex))
+                                if item_digits == ex_digits:
                                     match_idx = idx
                                     break
                             
                             if match_idx == -1:
                                 existing_items.append(item_str)
                             else:
-                                # Replace if the new string is more descriptive (labeled)
                                 if len(item_str) > len(str(existing_items[match_idx])):
                                     existing_items[match_idx] = item_str
                         else:
-                            # Not a number (Branch, Email, etc.), just add it if unique
                             existing_items.append(item_str)
+                        continue
+
+                    # If the AI puts an email in phishingLinks, move it
+                    if key == "phishingLinks" and "@" in str(item):
+                        self.update_intelligence({"bankAccounts": [f"Email: {item}"]})
                         continue
 
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
@@ -417,21 +427,22 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
     clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
 
-    # 1. Smart Account + Bank + Branch + Email Extraction
+    # 1. Forensic Entity Extraction (Banks, Accounts, Branches, Emails)
     all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
     captured_intel = []
     
-    # Extract Branch/Location
-    branches = re.findall(r'\b(Mumbai|Delhi|Chennai|Kolkata|Bangalore|Hyderabad|Pune|Ahmedabad|Surat|Jaipur|Lucknow|Kanpur|Nagpur|Indore|Thane|Bhopal|Visakhapatnam|Pimpri-Chinchwad|Patna|Vadodara)\b\s+Branch', combined_input, re.I)
-    for b in branches:
-        captured_intel.append(f"Branch: {b}")
+    # Flexible Branch/Location Detection
+    cities = "Mumbai|Delhi|Chennai|Kolkata|Bangalore|Hyderabad|Pune|Ahmedabad|Surat|Jaipur|Lucknow|Kanpur|Nagpur|Indore|Thane|Bhopal|Visakhapatnam|Vadodara"
+    branch_matches = re.findall(rf'\b({cities})\b(?:[\s\w]*branch)?', combined_input, re.I)
+    for b in branch_matches:
+        captured_intel.append(f"Branch: {b.title()}")
 
     for num in all_numbers:
         if len(num) == 10 and num[0] in '6789' and num in clean_phones:
             continue
             
         start_idx = combined_input.find(num)
-        context_before = combined_input[max(0, start_idx-60):start_idx]
+        context_before = combined_input[max(0, start_idx-80):start_idx]
         banks_near = re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK|PNB|BOB|CANARA|UNION|FEDERAL|DBS|RBL|IDFC|YES|BANK)\b', context_before, re.I)
         
         if banks_near:
@@ -439,26 +450,28 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             captured_intel.append(f"Bank Account: {bank_label} {num}")
             captured_intel.append(f"Bank: {bank_label}")
         
-        captured_intel.append(f"Account: {num}")
+        captured_intel.append(f"Account No: {num}")
 
     # UPI ID vs Email Separation
     all_at_items = re.findall(r'[\w\.-]+@[\w\.-]+', lower_input)
     clean_upi_ids = []
     for item in all_at_items:
         is_upi = any(h in item for h in ["@upi", "@oksbi", "@okicici", "@okaxis", "@ybl", "@paytm", "@ibl", "@axl"])
-        is_common_email = any(item.endswith(tld) for tld in [".com", ".net", ".org", ".edu", ".gov", ".xyz", ".in"])
+        # Common email signs: ends in a common TLD and doesn't have a known UPI handle
+        is_val_email = any(item.endswith(tld) for tld in [".com", ".net", ".org", ".edu", ".gov", ".xyz", ".in"])
         
         if is_upi:
             clean_upi_ids.append(item)
-        elif is_common_email:
+        else:
+            # If it has an @ and isn't a known UPI, it's forensic email intel
             captured_intel.append(f"Email: {item}")
 
     heuristic_intel = {
         "bankAccounts": list(set(captured_intel)),
         "upiIds": list(set(clean_upi_ids)),
-        "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
+        "phishingLinks": [link for link in re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input) if "@" not in link],
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "fraud", "support"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "fraud", "support", "deactivated", "warning"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
     }
     state.update_intelligence(heuristic_intel)
 
