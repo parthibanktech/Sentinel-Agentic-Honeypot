@@ -283,27 +283,27 @@ export class OpenAIService {
   private getSimulatedAnalysis(text: string, reason: string): any {
     const lower = text.toLowerCase();
     const isUrgent = /urgent|immediately|blocked|police|arrest|last date|expires|suspend/i.test(lower);
-    const isFinancial = /bank|account|upi|pay|transfer|refund|money|fee|charge|winner|prize|lottery/i.test(lower);
+    const isFinancial = /bank|account|upi|pay|transfer|refund|money|fee|charge|winner|prize|lottery|hdfc/i.test(lower);
     const isTechSupport = /virus|computer|microsoft|windows|teamviewer|anydesk/i.test(lower);
 
     let tactics = [];
-    if (isUrgent) tactics.push('URGENCY', 'FEAR');
-    if (isFinancial) tactics.push('GREED');
-    if (isTechSupport) tactics.push('FALSE_EXPERTISE');
+    if (isUrgent) tactics.push('URGENCY_PRESSURE');
+    if (isFinancial) tactics.push('FINANCIAL_FRAUD');
+    if (isTechSupport) tactics.push('TECHNICAL_IMPERSONATION');
 
-    const score = isUrgent ? 88 : (isFinancial ? 75 : (isTechSupport ? 65 : 45));
+    const score = isUrgent ? 95 : (isFinancial ? 88 : (isTechSupport ? 82 : 35));
 
     return {
-      scamDetected: score > 50,
+      scamDetected: score > 60,
       confidenceScore: score,
-      agentNotes: `• Analyzing Behavioral patterns...\n• Establishing threat vectors...`,
+      agentNotes: `🛡️ SENTINEL CORE (HEURISTIC ACTIVE): ${tactics.length ? tactics.join(' & ') : 'BEHAVIORAL SCAN'} detected. Brain is offline, initiating Persona Emulator protocol.`,
       extractedIntelligence: {
         confidence: score,
         bankAccounts: [],
         upiIds: [],
         phishingLinks: [],
         phoneNumbers: [],
-        suspiciousKeywords: lower.split(' ').filter(w => ['urgent', 'money', 'bank', 'police', 'block'].includes(w)),
+        suspiciousKeywords: lower.split(' ').filter(w => ['urgent', 'money', 'bank', 'police', 'block', 'hdfc', 'upi'].includes(w)),
         socialEngineeringTactics: tactics,
         falseExpertise: isTechSupport
       }
@@ -311,12 +311,22 @@ export class OpenAIService {
   }
 
   private getSimulatedResponse(text: string): string {
-    const responses = [
-      "Oh dear, Mittens just jumped on the keyboard. Which bank account is this for?",
-      "I'm sorry, I'm not very good with computers. Is 'App' a person?",
-      "I clicked the link but nothing happened. Can you read the address to me slowly?",
-      "God bless you for helping me. I am very nervous, please don't yell."
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    const lower = text.toLowerCase();
+
+    // Context-Aware Persona Fallbacks
+    if (lower.includes('hi') || lower.includes('hello')) {
+      return "Oh, hello there! My hearing aid was whistling, I didn't hear the phone at first. Who is this, please?";
+    }
+    if (lower.includes('bank') || lower.includes('hdfc') || lower.includes('account')) {
+      return "Oh dear, my pension account? My grandson told me about those scammers... is my money safe? Should I call the branch?";
+    }
+    if (lower.includes('upi') || lower.includes('pay') || lower.includes('google')) {
+      return "I don't have that Google Pay thing on my phone. Can I just send you a cheque in the post? My reading glasses are missing.";
+    }
+    if (lower.includes('link') || lower.includes('http') || lower.includes('click')) {
+      return "I clicked that blue writing but my screen just went dark and Mittens is meowing at me. What do I do now?";
+    }
+
+    return "I'm sorry, I'm not very good with these new phones. Could you explain that again slowly for an old teacher?";
   }
 }
