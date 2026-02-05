@@ -6,13 +6,13 @@
 
 ## 🎯 Choose Your Method
 
-### Option 1: Manual Deployment (10 minutes) ⭐ RECOMMENDED FOR SPEED
+### Option 1: Automated CI/CD (5 minutes) ⭐ RECOMMENDED - ZERO MANUAL COMMANDS
 
-Follow **DEPLOYMENT.md** - Simple copy-paste commands
+Follow **AUTO_DEPLOY.md** - GitHub Actions does everything automatically!
 
-### Option 2: CI/CD Auto-Deploy (15 minutes)
+### Option 2: Manual Deployment (10 minutes)
 
-Follow **CI_CD_SETUP.md** - Set up once, auto-deploy forever
+Follow **DEPLOYMENT.md** - Copy-paste commands if you prefer manual control
 
 ---
 
