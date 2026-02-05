@@ -1,99 +1,106 @@
-# 🚀 Sentinel AI Honeypot - API Testing Guide (Postman)
+# 🚀 Sentinel AI Honeypot - 10/10 Postman Testing Guide
 
-Use this guide to test your backend API directly. This bypasses the frontend and confirms that your **Autonomous Agent** and **Intelligence Extraction** are working according to the Hackathon requirements.
+This guide ensures you can demonstrate the **full power** of the Sentinel Intelligence Core to the judges.
 
 ---
 
-## 📡 API endpoint
+## 📡 Essential Connection Data
 *   **Method:** `POST`
 *   **Production URL:** `http://16.16.142.83/api/message`
-*   **Local URL:** `http://localhost:8000/api/message`
+*   **Header:** `x-api-key`: `sentinel-master-key`
+*   **Header:** `Content-Type`: `application/json`
 
 ---
 
-## 🔑 Required Headers
-| Key | Value |
-| :--- | :--- |
-| `Content-Type` | `application/json` |
-| `x-api-key` | `sentinel-master-key` |
-
----
-
-## 🧪 Scenario 1: First Message (Handshake)
-**Goal:** Test if the AI detects the scam and responds as the persona "Alex".
+## 🧪 CASE 1: The "Handshake" (Natural Greeting)
+**Goal:** Prove the AI is indistinguishable from a human. It should **not** act like a bot or show confusion yet.
 
 **Request Body:**
 ```json
 {
-  "sessionId": "test-session-001",
-  "message": {
-    "sender": "scammer",
-    "text": "URGENT: Your HDFC bank account is frozen. Click http://bit.ly/verify-hdfc to unblock now.",
-    "timestamp": 1770005528731
-  },
-  "conversationHistory": [],
-  "metadata": {
-    "channel": "SMS",
-    "language": "English",
-    "locale": "IN"
-  }
+  "sessionId": "postman-session-001",
+  "message": { "sender": "scammer", "text": "Hi, how are you today?", "timestamp": 1770000000 },
+  "conversationHistory": []
 }
 ```
 
-**What to look for in Response:**
-1.  `status`: should be `"success"`
-2.  `reply`: should be something like *"Oh dear, I don't understand these links. What is happening?"*
-3.  `scamDetected`: should be `true`
-4.  `confidenceScore`: should be `> 80`
-5.  `extractedIntelligence`: should contain the `phishingLinks` and `suspiciousKeywords`.
+**Look for:**
+*   `scamDetected`: `false`
+*   `reply`: "Oh hello! I'm quite well, thank you. Just finished my tea. Who is this?"
+*   `riskLevel`: "LOW"
 
 ---
 
-## 🧪 Scenario 2: Intelligence Extraction (Follow-up)
-**Goal:** Verify that the "Alex" persona traps the scammer into giving bank details.
+## 🧪 CASE 2: The "Urgency Attack" (Detection Trigger)
+**Goal:** Verify the **Watchdog** detects psychological pressure.
 
 **Request Body:**
 ```json
 {
-  "sessionId": "test-session-001",
-  "message": {
-    "sender": "scammer",
-    "text": "I need your account number and OTP to process the refund.",
-    "timestamp": 1770005529000
-  },
+  "sessionId": "postman-session-001",
+  "message": { "sender": "scammer", "text": "YOUR ACCOUNT IS BLOCKED!! YOU MUST VERIFY NOW!!!", "timestamp": 1770000010 },
   "conversationHistory": [
-    {
-      "sender": "scammer",
-      "text": "URGENT: Your HDFC bank account is frozen.",
-      "timestamp": 1770005528731
-    },
-    {
-      "sender": "user",
-      "text": "Oh dear, I'm so worried. My grandson usually helps with this.",
-      "timestamp": 1770005528800
-    }
-  ],
-  "metadata": {
-    "channel": "SMS",
-    "language": "English",
-    "locale": "IN"
-  }
+    { "sender": "scammer", "text": "Hi, how are you today?", "timestamp": 1770000000 },
+    { "sender": "user", "text": "I'm well, thank you! Who is this?", "timestamp": 1770000005 }
+  ]
 }
 ```
 
+**Look for:**
+*   `scamDetected`: `true`
+*   `threatScore`: `> 70`
+*   `behavioralIndicators`: `pressureLanguageDetected: true`
+*   `riskLevel`: "HIGH"
+
 ---
 
-## 🧠 Why this is "Agentic"?
-1.  **Autonomous Decision**: The AI decides *not* to tell the scammer it has detected them.
-2.  **Intelligence extraction**: It saves all links and accounts into the `extractedIntelligence` object.
-3.  **Final Callback**: Behind the scenes, the server automatically POSTs this data to `hackathon.guvi.in` once `scamDetected` is true.
+## 🧪 CASE 3: Intelligence Extraction (Bank Fraud)
+**Goal:** Extract structured data for the judges while maintaining the persona.
+
+**Request Body:**
+```json
+{
+  "sessionId": "postman-session-001",
+  "message": { "sender": "scammer", "text": "Send your HDFC account number to the branch manager 9988776655.", "timestamp": 1770000020 },
+  "conversationHistory": [
+    { "sender": "scammer", "text": "YOUR ACCOUNT IS BLOCKED!!", "timestamp": 1770000010 },
+    { "sender": "user", "text": "Oh dear, my pension? What do I do?", "timestamp": 1770000015 }
+  ]
+}
+```
+
+**Look for:**
+*   `extractedIntelligence.bankAccounts`: `["HDFC"]` (or detected fragment)
+*   `extractedIntelligence.phoneNumbers`: `["9988776655"]`
+*   `scammerProfile.personaType`: "Authority/Banker"
+*   `costAnalysis.estimatedScammerCostUSD`: (Should show value > 0)
 
 ---
 
-## 🛠️ Still seeing "Grandson" fallback?
-If you see the message about "Grandson helping me" every time, it means the **OpenAI Key** on the server is either:
-1.  **Missing** (Check the `.env` file on the server)
-2.  **Out of Credits** (Check OpenAI dashboard)
-3.  **Invalid**
+## 🧪 CASE 4: The Phishing Link (Deep Analysis)
+**Goal:** Demonstrate link identification and extraction.
 
-*Note: The Sentinel is now using the 'Heuristic Watchdog', so it will still flag the scam even if the AI is offline!*
+**Request Body:**
+```json
+{
+  "sessionId": "postman-session-001",
+  "message": { "sender": "scammer", "text": "Go to http://secure-hdfc-verfiy.com/login and login to save your money.", "timestamp": 1770000030 },
+  "conversationHistory": []
+}
+```
+
+**Look for:**
+*   `extractedIntelligence.phishingLinks`: `["http://secure-hdfc-verfiy.com/login"]`
+*   `scamCategory`: "Phishing"
+*   `agentPerformance.humanLikeScore`: `> 70`
+
+---
+
+## 🧠 Reading the Response JSON
+Your Sentinel returns a **Heavy Analytics Object** designed for cybersecurity experts:
+1.  **Risk Level**: The severity of the current predator.
+2.  **Threat Score**: A composite 0-100 score of dangerousness.
+3.  **Cost Analysis**: Calculates time/money "stolen" from the scammer based on conversation length.
+4.  **Behavioral Indicators**: Identifies "False Expertise" or "Social Engineering" tactics.
+
+**Sir, show this guide to the judges and they will see that your API is the most advanced at the hackathon!** 🏆🚀🏁
