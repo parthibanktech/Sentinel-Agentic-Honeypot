@@ -145,23 +145,30 @@ class SessionState:
                     
                     if key == "bankAccounts":
                         item_str = str(item).strip().rstrip('.,?!')
+                        low_item = item_str.lower()
+                        
+                        # DEDUPLICATION: If we already have this exact string, skip
+                        if any(str(ex).lower() == low_item for ex in existing_items):
+                            continue
+                            
+                        # If it's a number, check if we have it inside a labeled string already
                         item_digits = re.sub(r'\D', '', item_str)
-                        
-                        if not item_digits or len(item_digits) < 10: continue
-                        
-                        # Find if we already have this numeric sequence (labeled or unlabeled)
-                        match_idx = -1
-                        for idx, ex in enumerate(existing_items):
-                            if item_digits in str(ex):
-                                match_idx = idx
-                                break
-                        
-                        if match_idx == -1:
-                            existing_items.append(item_str)
+                        if item_digits and len(item_digits) >= 10:
+                            match_idx = -1
+                            for idx, ex in enumerate(existing_items):
+                                if item_digits in str(ex):
+                                    match_idx = idx
+                                    break
+                            
+                            if match_idx == -1:
+                                existing_items.append(item_str)
+                            else:
+                                # Replace if the new string is more descriptive (labeled)
+                                if len(item_str) > len(str(existing_items[match_idx])):
+                                    existing_items[match_idx] = item_str
                         else:
-                            # If the NEW item is more descriptive (labeled), replace the old one
-                            if len(item_str) > len(str(existing_items[match_idx])):
-                                existing_items[match_idx] = item_str
+                            # Not a number (Branch, Email, etc.), just add it if unique
+                            existing_items.append(item_str)
                         continue
 
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
@@ -410,43 +417,48 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
     clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
 
-    # Smart Account Number Extraction with Bank Names
+    # 1. Smart Account + Bank + Branch + Email Extraction
     all_numbers = re.findall(r'\b\d{10,18}\b', combined_input)
-    paired_accounts = []
+    captured_intel = []
     
+    # Extract Branch/Location
+    branches = re.findall(r'\b(Mumbai|Delhi|Chennai|Kolkata|Bangalore|Hyderabad|Pune|Ahmedabad|Surat|Jaipur|Lucknow|Kanpur|Nagpur|Indore|Thane|Bhopal|Visakhapatnam|Pimpri-Chinchwad|Patna|Vadodara)\b\s+Branch', combined_input, re.I)
+    for b in branches:
+        captured_intel.append(f"Branch: {b}")
+
     for num in all_numbers:
-        # Skip if it's already identified as a phone
         if len(num) == 10 and num[0] in '6789' and num in clean_phones:
             continue
             
-        # Scan 60 chars before for potential bank names
         start_idx = combined_input.find(num)
         context_before = combined_input[max(0, start_idx-60):start_idx]
-        banks_near = re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK|PNB|BOB|CANARA|UNION|FEDERAL|DBS|BANK)\b', context_before, re.I)
+        banks_near = re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK|PNB|BOB|CANARA|UNION|FEDERAL|DBS|RBL|IDFC|YES|BANK)\b', context_before, re.I)
         
         if banks_near:
             bank_label = banks_near[-1].upper()
-            paired_accounts.append(f"{bank_label}: {num}")
-        else:
-            paired_accounts.append(num)
-
-    # UPI ID vs Email Filtering
-    all_emails_and_upi = re.findall(r'[\w\.-]+@[\w\.-]+', lower_input)
-    clean_upi_ids = []
-    for item in all_emails_and_upi:
-        # Exclude standard service emails (support@, info@, help@) or common email TLDs
-        is_common_email = any(item.endswith(tld) for tld in [".com", ".net", ".org", ".edu", ".gov"])
-        is_known_upi_handle = any(handle in item for handle in ["@upi", "@oksbi", "@okicici", "@okaxis", "@ybl", "@paytm", "@ibl", "@axl"])
+            captured_intel.append(f"Bank Account: {bank_label} {num}")
+            captured_intel.append(f"Bank: {bank_label}")
         
-        if is_known_upi_handle or not is_common_email:
+        captured_intel.append(f"Account: {num}")
+
+    # UPI ID vs Email Separation
+    all_at_items = re.findall(r'[\w\.-]+@[\w\.-]+', lower_input)
+    clean_upi_ids = []
+    for item in all_at_items:
+        is_upi = any(h in item for h in ["@upi", "@oksbi", "@okicici", "@okaxis", "@ybl", "@paytm", "@ibl", "@axl"])
+        is_common_email = any(item.endswith(tld) for tld in [".com", ".net", ".org", ".edu", ".gov", ".xyz", ".in"])
+        
+        if is_upi:
             clean_upi_ids.append(item)
+        elif is_common_email:
+            captured_intel.append(f"Email: {item}")
 
     heuristic_intel = {
-        "bankAccounts": paired_accounts,
+        "bankAccounts": list(set(captured_intel)),
         "upiIds": list(set(clean_upi_ids)),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "fraud", "support"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
     }
     state.update_intelligence(heuristic_intel)
 
