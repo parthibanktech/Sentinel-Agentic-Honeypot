@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Use LangChain for flexible LLM switching
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from fastapi.staticfiles import StaticFiles
@@ -46,23 +45,15 @@ if os.path.exists(dist_path):
 
 # --- CONFIGURATION ---
 HONEYPOT_API_KEY = os.getenv("HONEYPOT_API_KEY", "sentinel-master-key")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY") 
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 def is_valid_sk(k): 
     return isinstance(k, str) and k.startswith("sk-") and len(k) > 30 and "{" not in k
 
-# Select LLM based on available keys (Gemini prioritized, then OpenAI)
+# Select LLM - Strictly OpenAI
 llm = None
-if GEMINI_API_KEY and not GEMINI_API_KEY.startswith("$"):
-    try:
-        print("Initializing Gemini LLM...")
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
-    except Exception as e:
-        print(f"Error initializing Gemini: {e}")
-
-if not llm and is_valid_sk(OPENAI_API_KEY):
+if is_valid_sk(OPENAI_API_KEY):
     try:
         print("Initializing OpenAI (ChatGPT) LLM...")
         llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
