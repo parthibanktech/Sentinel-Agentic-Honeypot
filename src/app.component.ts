@@ -437,19 +437,11 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. HYBRID INTELLIGENCE: Use Client Brain if available (Speed), else use Backend Bridge (Reliability)
+      // 2. BACKEND BRIDGE: Securely interact with the AI via Python server
       try {
-        if (environment._internal_sk && environment._internal_sk.startsWith('sk-')) {
-          // Attempt direct browser-side analysis for instant response
-          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
-          // Add a tag to notes so you know it was direct
-          response.agentNotes = "⚡ DIRECT CORE ACTIVE: " + (response.agentNotes || "");
-        } else {
-          // Use Backend Bridge if no local key or failing
-          response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
-        }
+        response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
       } catch (err: any) {
-        console.warn('Local Brain offline or quota hit. Routing via Sentinel Central Bridge...', err);
+        console.warn('Sentinel Central Bridge error. Retrying...', err);
         response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
       }
 

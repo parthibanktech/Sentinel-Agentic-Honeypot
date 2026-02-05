@@ -19,12 +19,8 @@ export class OpenAIService {
   constructor() {
     let key = '';
 
-    // Check environment file (internal hidden key)
-    if (environment._internal_sk) {
-      key = environment._internal_sk;
-    }
     // Check process.env
-    else if (typeof process !== 'undefined' && process.env && process.env['API_KEY']) {
+    if (typeof process !== 'undefined' && process.env && process.env['API_KEY']) {
       key = process.env['API_KEY'];
     }
 
@@ -313,10 +309,18 @@ export class OpenAIService {
   private getSimulatedResponse(text: string): string {
     const lower = text.toLowerCase();
 
-    // Context-Aware Persona Fallbacks
-    if (lower.includes('hi') || lower.includes('hello')) {
+    // 1. Natural Conversational Phrases
+    if (lower.includes('how are you') || lower.includes('how do you do')) {
+      return "I'm doing quite well, thank you for asking! It's been a lovely day here. How are you doing today?";
+    }
+    if (lower.includes('who is this') || lower.includes('who are you')) {
+      return "My name is Alex. I'm a retired teacher. I'm sorry, I don't recognize your number, who am I speaking with?";
+    }
+    if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
       return "Oh, hello there! My hearing aid was whistling, I didn't hear the phone at first. Who is this, please?";
     }
+
+    // 2. Scam-Specific Reactive Responses
     if (lower.includes('bank') || lower.includes('hdfc') || lower.includes('account')) {
       return "Oh dear, my pension account? My grandson told me about those scammers... is my money safe? Should I call the branch?";
     }
@@ -327,6 +331,6 @@ export class OpenAIService {
       return "I clicked that blue writing but my screen just went dark and Mittens is meowing at me. What do I do now?";
     }
 
-    return "I'm sorry, I'm not very good with these new phones. Could you explain that again slowly for an old teacher?";
+    return "I'm sorry, my hearing isn't what it used to be. Could you explain what you need again slowly for an old teacher?";
   }
 }
