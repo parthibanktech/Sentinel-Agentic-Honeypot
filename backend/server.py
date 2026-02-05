@@ -231,9 +231,11 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
         content = response.content.strip()
         
-        # Clean markdown if present
-        if "```json" in content: content = content.split("```json")[1].split("```")[0].strip()
-        elif "```" in content: content = content.split("```")[1].split("```")[0].strip()
+        # --- ULTRA-ROBUST JSON EXTRACTION ---
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            content = json_match.group(0)
         
         result = json.loads(content)
         
@@ -242,8 +244,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         state.update_intelligence(result.get("extractedIntelligence", {}))
         state.agentNotes = result.get("agentNotes", state.agentNotes)
         
-        # Trigger callback if scam is confirmed AND (persona finished OR message threshold reached)
-        # Threshold (15) ensures we don't wait forever, capturing what we can.
+        # Trigger callback if scam is confirmed
         if state.scamDetected and (result.get("isFinished") or state.totalMessagesExchanged >= 15):
             asyncio.create_task(send_final_result(state))
             
@@ -256,8 +257,20 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
         )
     except Exception as e:
-        print(f"Agent Processing Error: {e}")
-        return HoneypotResponse(status="success", reply="I'm so sorry, my phone is acting up today. What was it you needed?")
+        print(f"Agent Processing Error: {str(e)}")
+        # If processing fails, use a high-quality persona fallback instead of a generic error
+        fallback_replies = [
+            "Oh dear, I'm having a bit of trouble with my phone. What was it you were saying about the bank?",
+            "I'm sorry, I must have pressed the wrong button. Could you explain that again slowly?",
+            "My grandson usually helps me with this... what do I need to click for the payment?"
+        ]
+        import random
+        return HoneypotResponse(
+            status="success", 
+            reply=random.choice(fallback_replies),
+            scamDetected=False,
+            agentNotes="Agent processing a request. Intelligence extraction in progress..."
+        )
 
 # Mount static files AFTER all API routes to serve the Angular app
 if static_dir and os.path.exists(static_dir):
