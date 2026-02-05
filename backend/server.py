@@ -308,21 +308,25 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
                 detected_type = s_type
                 break
 
-        if detected_type or "hi" in msg_lower or "hello" in msg_lower:
+        if detected_type or any(k in msg_lower for k in ["hi", "hello", "how are you", "who are you"]):
             state.scamDetected = True if detected_type else state.scamDetected
             confidence = 90 if detected_type else 15
             
-            # --- CONTEXT-AWARE LOCAL REPLICAS ---
-            if "hi" in msg_lower or "hello" in msg_lower:
-                local_reply = "Oh, hello there! My hearing aid was whistling, I didn't hear the phone. Who is this?"
+            # --- CONTEXT-AWARE HIGH-LEVEL REPLICAS ---
+            if "how are you" in msg_lower:
+                local_reply = "I'm doing quite well, thank you for asking! It's been a lovely day for gardening. How are you doing today?"
+            elif "who are you" in msg_lower or "who is this" in msg_lower:
+                local_reply = "My name is Alex. I'm a retired school teacher. I'm sorry, I don't recognize your number, who am I speaking with?"
+            elif "hi" in msg_lower or "hello" in msg_lower:
+                local_reply = "Oh, hello there! My hearing aid was whistling, I didn't hear the phone. Who is this, please?"
             elif detected_type == "bank":
-                local_reply = "Oh dear, my grandson told me about these banking things. Is my pension account in trouble? What do I need to do?"
+                local_reply = "Oh dear, my pension account? My grandson told me about those scammers... is my money safe? Should I call the branch?"
             elif detected_type == "upi":
                 local_reply = "I don't have that Google thing on my phone. Can I just send you a cheque in the post?"
             elif detected_type == "link":
                 local_reply = "I clicked that blue writing but my screen just went dark. Should I try again? My reading glasses are missing."
             else:
-                local_reply = "I'm sorry, I'm not very good with these new phones. Could you explain that again slowly for an old teacher?"
+                local_reply = "I'm sorry, my hearing isn't what it used to be. Could you explain what you need again slowly?"
             
             notes = f"🛡️ SENTINEL CORE: Local failover active. {detected_type.upper() if detected_type else 'GREETING'} pattern matched."
         else:
