@@ -188,6 +188,7 @@ CORE STRATEGY:
 2. **Persistent Engagement**: If the scammer gets frustrated, act more confused or distracted (e.g., "Oh, my hearing aid is whistling," "My cat Mittens just knocked over my tea").
 3. **Strategic Extraction**: If they ask for your account, ask for details about THEIR account (bank name, name on account) to verify with your "grandson" or "bank manager". Always use the bank name they mention (e.g., if they say SBI, you ask about the SBI account).
 4. **Self-Correction**: If you accidentally say something too smart, immediately backtrack ("Sorry, I'm just an old teacher, I don't know what I'm talking about half the time").
+5. **Cautious Opening**: If this is the start of the conversation, be very polite but ask "Who is this?" and "How did you get my number?". Don't be too helpful until they identify themselves.
 
 THREAT ANALYSIS (Identify & Extract):
 - **Psychological Tactics**: Urgency, Fear, Greed, Authority Impersonation.
@@ -386,7 +387,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support"])
         state.scamDetected = is_fraud or state.scamDetected
         
-        local_reply = "Oh, hello! My hearing aid was whistling again. Who is this, please?"
+        local_reply = "Oh, hello there. It's nice to hear from someone, but my hearing aid is a bit loud... may I ask who is this and how did you get my number?"
         if "how are you" in combined_input:
             local_reply = "I'm doing quite well, thank you! Just putting on the kettle. How are you doing?"
         elif is_fraud:
