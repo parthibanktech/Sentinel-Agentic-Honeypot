@@ -443,10 +443,8 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         try {
           response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
         } catch (backendErr: any) {
-          console.warn('Python Backend unreachable. Failing over to Client-Side OpenAI (Hybrid Mode).', backendErr);
-          // Fallback
-          this.backendMode.set('CLIENT_OPENAI');
-          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+          console.error('Python Backend Error:', backendErr);
+          throw new Error('Connection to Sentinel Central Intelligence lost. Please check server status.');
         }
       } else {
         // Use Client Service directly
