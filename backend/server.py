@@ -213,12 +213,17 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state.totalMessagesExchanged = len(payload.conversationHistory) + 1
     
     # DYNAMIC LLM SELECTION
-    # If the provided header is a real model key, spin up a temporary LLM instance for this request.
     current_llm = llm
-    if auth.startswith("sk-"):
-        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
-    elif auth.startswith("AIza"):
-        current_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=auth, temperature=0.7)
+    try:
+        if auth.startswith("sk-"):
+            current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+        elif auth.startswith("AIza"):
+            current_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=auth, temperature=0.7)
+    except Exception as e:
+        print(f"Error initializing dynamic LLM: {e}. Falling back to master LLM.")
+
+    if not current_llm and OPENAI_API_KEY:
+         current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
 
     if not current_llm:
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
