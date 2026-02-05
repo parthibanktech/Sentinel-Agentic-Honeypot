@@ -70,6 +70,43 @@ if not llm:
 # --- SESSION STORAGE (In-Memory) ---
 sessions = {}
 
+# --- PERSISTENCE LAYER ---
+SESSIONS_FILE = "sessions.json"
+
+def load_sessions():
+    if not os.path.exists(SESSIONS_FILE): return {}
+    try:
+        with open(SESSIONS_FILE, "r") as f:
+            data = json.load(f)
+            loaded = {}
+            for sid, sdata in data.items():
+                s = SessionState(sid)
+                s.scamDetected = sdata.get("scamDetected", False)
+                s.totalMessagesExchanged = sdata.get("totalMessagesExchanged", 0)
+                s.extractedIntelligence = sdata.get("extractedIntelligence", {})
+                s.agentNotes = sdata.get("agentNotes", "")
+                s.isFinalResultSent = sdata.get("isFinalResultSent", False)
+                s.history = [MessageObj(**m) for m in sdata.get("history", [])]
+                loaded[sid] = s
+            return loaded
+    except: return {}
+
+def save_sessions(sessions_dict):
+    try:
+        data = {}
+        for sid, s in sessions_dict.items():
+            data[sid] = {
+                "scamDetected": s.scamDetected,
+                "totalMessagesExchanged": s.totalMessagesExchanged,
+                "extractedIntelligence": s.extractedIntelligence,
+                "agentNotes": s.agentNotes,
+                "isFinalResultSent": s.isFinalResultSent,
+                "history": [m.dict() for m in s.history]
+            }
+        with open(SESSIONS_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e: print(f"Save error: {e}")
+
 class SessionState:
     def __init__(self, sessionId: str):
         self.sessionId = sessionId
@@ -88,33 +125,25 @@ class SessionState:
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
         def get_phone_fingerprint(p):
-            # Normalizes phone numbers to last 10 digits for comparison
             digits = re.sub(r'\D', '', str(p))
             return digits[-10:] if len(digits) >= 10 else digits
 
         for key in self.extractedIntelligence:
             if key in new_intel and isinstance(new_intel[key], list):
                 existing_items = self.extractedIntelligence[key]
-                
                 for item in new_intel[key]:
                     if not item: continue
                     clean_item = str(item).strip().rstrip('.,?!')
-                    
-                    # Special Logic for Phone Numbers (Deduplicate +91 vs raw)
                     if key == "phoneNumbers":
-                        fingerprint = get_phone_fingerprint(clean_item)
-                        if fingerprint and not any(get_phone_fingerprint(ex) == fingerprint for ex in existing_items):
+                        fp = get_phone_fingerprint(clean_item)
+                        if fp and not any(get_phone_fingerprint(ex) == fp for ex in existing_items):
                             existing_items.append(clean_item)
                         continue
-
-                    # Prevent phone numbers from sneaking into bank accounts
                     if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
-                        fingerprint = get_phone_fingerprint(clean_item)
-                        if not any(get_phone_fingerprint(ex) == fingerprint for ex in self.extractedIntelligence.get("phoneNumbers", [])):
+                        fp = get_phone_fingerprint(clean_item)
+                        if not any(get_phone_fingerprint(ex) == fp for ex in self.extractedIntelligence.get("phoneNumbers", [])):
                             self.extractedIntelligence["phoneNumbers"].append(clean_item)
                         continue
-                    
-                    # General deduplication for other fields (UPI, Links)
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
                     if clean_item.lower() not in low_matches:
                         existing_items.append(clean_item)
@@ -295,10 +324,13 @@ async def send_final_result(session: SessionState):
 # --- ROUTES ---
 @app.post("/api/message", response_model=HoneypotResponse)
 async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_api_key)):
+    global sessions
+    # Load persistence
+    if not sessions: sessions = load_sessions()
+    
     sid = payload.sessionId
     if sid not in sessions: sessions[sid] = SessionState(sid)
     state = sessions[sid]
-    state.totalMessagesExchanged = len(payload.conversationHistory) + 1
     
     # --- SERVER-SIDE SESSION TRACKING ---
     # Merge client history with server history to ensure count never resets
@@ -388,6 +420,8 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         state.history.append(agent_reply_obj)
         state.totalMessagesExchanged = len(state.history)
 
+        save_sessions(sessions) # PERSIST
+
         return HoneypotResponse(
             sessionId=sid,
             scamDetected=state.scamDetected,
@@ -438,11 +472,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
         state.history.append(agent_reply_obj)
         state.totalMessagesExchanged = len(state.history)
-
-        # Failover trigger logic
-        intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
-        if state.scamDetected and (intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
-            asyncio.create_task(send_final_result(state))
+        save_sessions(sessions) # PERSIST
 
         # Diagnostic Note
         error_note = f"⚠️ BRAIN OFFLINE: {str(e)}. Heuristic Shield active."
@@ -461,6 +491,19 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             riskLevel="HIGH" if state.scamDetected else "LOW",
             scamCategory="Fraud Alert" if state.scamDetected else "Benign",
             threatScore=90 if state.scamDetected else 10,
+            behavioralIndicators=BehavioralIndicators(),
+            engagementMetrics=EngagementMetrics(
+                agentMessages=len([m for m in state.history if m.sender == 'user']),
+                scammerMessages=len([m for m in state.history if m.sender == 'scammer'])
+            ),
+            intelligenceMetrics=IntelligenceMetrics(),
+            scammerProfile=ScammerProfile(),
+            costAnalysis=CostAnalysis(
+                timeWastedMinutes=state.totalMessagesExchanged * 1.5,
+                estimatedScammerCostUSD=state.totalMessagesExchanged * 0.75
+            ),
+            agentPerformance=AgentPerformance(),
+            systemMetrics=SystemMetrics(processingTimeMs=100, systemLatencyMs=50),
             conversationHistory=state.history
         )
 
