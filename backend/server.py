@@ -121,6 +121,7 @@ class SessionState:
         }
         self.agentNotes = ""
         self.isFinalResultSent = False
+        self.lastSentIntelligenceCount = 0
         self.history: List[MessageObj] = []
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
@@ -298,8 +299,11 @@ async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
     return x_api_key
 
 async def send_final_result(session: SessionState):
-    if session.isFinalResultSent: return
-    
+    # SMART UPDATE: Only send if we have NEW intelligence or if it's the first time
+    current_intel_count = sum(len(v) for v in session.extractedIntelligence.values() if isinstance(v, list))
+    if session.isFinalResultSent and current_intel_count <= session.lastSentIntelligenceCount:
+        return
+
     # STRICT COMPLIANCE: Match Section 12 payload exactly
     payload = {
         "sessionId": session.sessionId,
@@ -316,13 +320,14 @@ async def send_final_result(session: SessionState):
     }
     
     # Log payload for debugging
-    print(f"[CALLBACK] Sending payload for {session.sessionId}: {json.dumps(payload)}")
+    print(f"[CALLBACK] Sending payload for {session.sessionId} (Intel Count: {current_intel_count}): {json.dumps(payload)}")
     
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(CALLBACK_URL, json=payload, timeout=10.0)
             if resp.status_code == 200:
                 session.isFinalResultSent = True
+                session.lastSentIntelligenceCount = current_intel_count
                 print(f"[CALLBACK] Success for {session.sessionId}")
             else:
                 print(f"[CALLBACK] Failed: {resp.status_code} - {resp.text}")
@@ -435,12 +440,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         state.update_intelligence(ai_intel)
         state.agentNotes = result.get("agentNotes", "[STRATEGY: Intelligence Gathering], [INTENT: Scam Engagement], [ACTION: Success]")
         
-        # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough
+        # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough OR critical intel found
         # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count >= 5
         is_finished = result.get("isFinished", False)
         intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
         
-        if state.scamDetected and (is_finished or intelligence_count >= 3 or state.totalMessagesExchanged >= 5):
+        # AGGRESSIVE CALLBACK: If we have Phone or Bank Account, report IMMEDIATELY.
+        has_critical_intel = len(state.extractedIntelligence.get("phoneNumbers", [])) > 0 or len(state.extractedIntelligence.get("bankAccounts", [])) > 0
+        
+        if state.scamDetected and (is_finished or has_critical_intel or intelligence_count >= 3 or state.totalMessagesExchanged >= 4):
             asyncio.create_task(send_final_result(state))
 
         # Prepare updated history to return
