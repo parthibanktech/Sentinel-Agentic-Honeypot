@@ -315,17 +315,19 @@ async def send_final_result(session: SessionState):
         "agentNotes": session.agentNotes or "Scammer engaged and intelligence extracted."
     }
     
+    # Log payload for debugging
+    print(f"[CALLBACK] Sending payload for {session.sessionId}: {json.dumps(payload)}")
+    
     async with httpx.AsyncClient() as client:
         try:
-            print(f"Reporting final result for {session.sessionId}")
             resp = await client.post(CALLBACK_URL, json=payload, timeout=10.0)
             if resp.status_code == 200:
                 session.isFinalResultSent = True
-                print(f"Callback successful for {session.sessionId}")
+                print(f"[CALLBACK] Success for {session.sessionId}")
             else:
-                print(f"Callback failed: {resp.status_code} - {resp.text}")
+                print(f"[CALLBACK] Failed: {resp.status_code} - {resp.text}")
         except Exception as e:
-            print(f"Callback error: {e}")
+            print(f"[CALLBACK] Error: {e}")
 
 # --- ROUTES ---
 @app.post("/api/message", response_model=HoneypotResponse)
@@ -377,14 +379,18 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     
     # Extract actual bank names and potential account numbers
     banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
-    acc_numbers = re.findall(r'\b\d{9,18}\b', combined_input) # Matches typical 9-18 digit account numbers
+    acc_numbers = re.findall(r'\b\d{10,18}\b', combined_input) # Typical 10-18 digit account numbers
     
+    # Enhanced Phone Regex (supports +91, 0, dashes, spaces)
+    raw_phones = re.findall(r'(?:\+?91[\-\s]?)?[6-9]\d{4}[\-\s]?\d{5}', combined_input)
+    clean_phones = [re.sub(r'\D', '', p)[-10:] for p in raw_phones] # Normalize to last 10 digits
+
     heuristic_intel = {
         "bankAccounts": list(set(banks_found + acc_numbers)),
-        "upiIds": re.findall(r'[\w.-]+@[\w.-]+', combined_input),
+        "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', combined_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', combined_input),
-        "phoneNumbers": re.findall(r'\b(?:\+?91|0)?[6-9]\d{9}\b', combined_input),
-        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support", "bank", "account", "refund", "kyc"] if k in combined_input]
+        "phoneNumbers": list(set(clean_phones)),
+        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support", "bank", "account", "refund", "kyc", "compromised", "lock"] if k in combined_input]
     }
     state.update_intelligence(heuristic_intel)
 
