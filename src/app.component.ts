@@ -6,6 +6,7 @@ import { OpenAIService } from './services/openai.service';
 import { CallbackService } from './services/callback.service';
 import { NewsService } from './services/news.service';
 import { Message, Intelligence, ApiRequestPayload, FinalCallbackPayload } from './types';
+import { environment } from './environments/environment';
 import { v4 as uuidv4 } from 'uuid';
 
 @Component({
@@ -38,6 +39,11 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
   metaLanguage = signal<string>('English');
   metaLocale = signal<string>('IN');
 
+  // --- Auth State ---
+  isAuthorized = signal<boolean>(false);
+  userInputKey = signal<string>('');
+  environment = environment; // For template access
+
   // Conversation State
   messages = signal<Message[]>([]);
   isProcessing = signal<boolean>(false); // Backend Thinking
@@ -53,6 +59,16 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
   startTime = signal<number | null>(null);
   now = signal<number>(Date.now());
   private timerInterval: unknown = null;
+
+  // Authentication Check
+  checkAuth() {
+    if (this.userInputKey().trim() === environment.honey_pot) {
+      this.isAuthorized.set(true);
+      this.showNotification('Access Granted. Sentinel Dashboard Live.', 'info', 2000);
+    } else {
+      this.showNotification('Invalid API Key. Access Denied.', 'error', 3000);
+    }
+  }
 
   // Derived Timer
   durationSeconds = computed(() => {

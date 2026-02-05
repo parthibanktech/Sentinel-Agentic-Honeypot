@@ -34,6 +34,7 @@ app.add_middleware(
 # --- STATIC FILES ---
 # Serve frontend build if it exists
 dist_path = os.path.join(os.getcwd(), "dist")
+static_dir = None
 if os.path.exists(dist_path):
     # Find the nested project folder inside dist if Angular put it there
     project_dirs = [d for d in os.listdir(dist_path) if os.path.isdir(os.path.join(dist_path, d))]
@@ -41,10 +42,6 @@ if os.path.exists(dist_path):
         static_dir = os.path.join(dist_path, project_dirs[0], "browser") if os.path.exists(os.path.join(dist_path, project_dirs[0], "browser")) else os.path.join(dist_path, project_dirs[0])
     else:
         static_dir = dist_path
-    
-    if os.path.exists(static_dir):
-        print(f"Serving static files from: {static_dir}")
-        app.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
 
 # --- CONFIGURATION ---
 HONEYPOT_API_KEY = os.getenv("HONEYPOT_API_KEY", "sentinel-master-key")
@@ -228,12 +225,21 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         print(f"Agent Processing Error: {e}")
         return HoneypotResponse(status="success", reply="I'm so sorry, my phone is acting up today. What was it you needed?")
 
-@app.get("/")
-def health_check(): 
-    # If the UI is available, redirect to it, otherwise return JSON
-    if os.path.exists(dist_path):
+# Mount static files AFTER all API routes to serve the Angular app
+if static_dir and os.path.exists(static_dir):
+    print(f"Serving static files from: {static_dir}")
+    
+    # Serve index.html for the root path
+    @app.get("/")
+    async def serve_spa():
         return FileResponse(os.path.join(static_dir, "index.html"))
-    return {"status": "online", "service": "Sentinel Honey-Pot API"}
+    
+    # Mount static files for all other paths (CSS, JS, etc.)
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+else:
+    @app.get("/")
+    def health_check():
+        return {"status": "online", "service": "Sentinel Honey-Pot API"}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

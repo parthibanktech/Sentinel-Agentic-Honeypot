@@ -2,8 +2,8 @@ export const environment = {
   // 🛡️ USER ACCESS KEY (Judges/Public)
   honey_pot: 'sentinel-master-key',
 
-  // 🕵️ INTERNAL FAILOVER KEY (Placeholder for push)
-  _internal_sk: 'REPLACE_WITH_YOUR_KEY_ONCE_PUSHED',
+  // 🕵️ INTERNAL FAILOVER KEY (Add your key on Render)
+  _internal_sk: '',
 
   // 📡 BACKEND SERVICE URL
   apiUrl: ''
