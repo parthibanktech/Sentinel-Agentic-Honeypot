@@ -166,13 +166,12 @@ export class OpenAIService {
     `;
 
     try {
-      let result = await this.callOpenAI(prompt, true, 0, 1000); // Max tokens 1000 for JSON
+      let result = await this.callOpenAI(prompt, true, 0, 1000);
 
-      // CLEAN MARKDOWN IF PRESENT
-      if (result.includes('```json')) {
-        result = result.split('```json')[1].split('```')[0].trim();
-      } else if (result.includes('```')) {
-        result = result.split('```')[1].split('```')[0].trim();
+      // ULTRA ROBUST JSON EXTRACTION
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        result = jsonMatch[0];
       }
 
       const parsed = JSON.parse(result);
