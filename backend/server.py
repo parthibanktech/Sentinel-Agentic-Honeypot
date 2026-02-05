@@ -88,10 +88,23 @@ class SessionState:
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
         for key in self.extractedIntelligence:
             if key in new_intel and isinstance(new_intel[key], list):
-                existing = set(self.extractedIntelligence[key])
+                # PRO-MODE: Case-insensitive deduplication and noise filtering
+                existing_lower = {str(x).lower() for x in self.extractedIntelligence[key]}
                 for item in new_intel[key]:
-                    if item and str(item) not in existing:
-                        self.extractedIntelligence[key].append(str(item))
+                    if not item: continue
+                    clean_item = str(item).strip()
+                    low_item = clean_item.lower()
+                    
+                    # Prevent phone numbers from sneaking into bank accounts
+                    if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
+                        if "phoneNumbers" in self.extractedIntelligence:
+                            if low_item not in {x.lower() for x in self.extractedIntelligence["phoneNumbers"]}:
+                                self.extractedIntelligence["phoneNumbers"].append(clean_item)
+                        continue
+                        
+                    if low_item not in existing_lower:
+                        self.extractedIntelligence[key].append(clean_item)
+                        existing_lower.add(low_item)
 
 class MessageObj(BaseModel):
     sender: str
@@ -216,7 +229,7 @@ OUTPUT JSON SCHEMA (STRICT):
     "personaType": "e.g., Fake Police, Fake Banker",
     "aggressionLevel": "LOW | MEDIUM | HIGH"
   },
-  "agentNotes": "Summary of behavioral patterns and captured intelligence."
+  "agentNotes": "Strict Forensic Format: [STRATEGY: <brief tech tactic identified>], [INTENT: <scammer's goal>], [ACTION: <summary of intel captured>]. Keep it under 2 sentences."
 }
 """
 
@@ -328,12 +341,14 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if json_match: content = json_match.group(0)
         result = json.loads(content)
         
-        # Sync state
+        # Sync state with cleaning
         state.scamDetected = result.get("scamDetected", state.scamDetected)
-        if "bank" in combined_input or "sbi" in combined_input: state.scamDetected = True # Extra safety
+        if any(w in combined_input for w in ["bank", "sbi", "hdfc", "upi", "kyc"]): state.scamDetected = True 
         
-        state.update_intelligence(result.get("extractedIntelligence", {}))
-        state.agentNotes = result.get("agentNotes", "Brain Active: Intelligence Captured.")
+        # Clean the AI's extraction results before updating state
+        ai_intel = result.get("extractedIntelligence", {})
+        state.update_intelligence(ai_intel)
+        state.agentNotes = result.get("agentNotes", "[STRATEGY: Intelligence Gathering], [INTENT: Scam Engagement], [ACTION: Success]")
         
         # SECTION 12 COMPLIANCE: Trigger callback if finished or deep enough
         # We trigger if AI says 'isFinished' OR if we have good intelligence OR if msg count >= 5
