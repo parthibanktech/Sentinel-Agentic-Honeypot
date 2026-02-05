@@ -373,9 +373,9 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
 
     # --- HEURISTIC INTELLIGENCE (Guardian Mode) ---
-    msg_text = payload.message.text
-    sender_text = payload.message.sender
-    combined_input = f"{sender_text} {msg_text}".lower()
+    # Scan ENTIRE history to catch items missed in previous turns or if history is passed in payload
+    all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
+    combined_input = f"{all_text} {payload.message.sender} {payload.message.text}".lower()
     
     # Extract actual bank names and potential account numbers
     banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
