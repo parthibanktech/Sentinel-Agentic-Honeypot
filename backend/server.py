@@ -341,12 +341,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state = sessions[sid]
     
     # --- SERVER-SIDE SESSION TRACKING ---
-    # Merge client history with server history to ensure count never resets
-    if not state.history and payload.conversationHistory:
+    # Self-Healing: If client sends a longer history (e.g. server restarted), accept it.
+    # Otherwise, rely on server state to prevent manipulation.
+    if payload.conversationHistory and len(payload.conversationHistory) > len(state.history):
+        print(f"[SESSION] Healing session {sid}: Updating history from client ({len(payload.conversationHistory)} items).")
         state.history = payload.conversationHistory
     
     # Add the NEW incoming message to server-side record
     state.history.append(payload.message)
+    print(f"[SESSION] {sid} history size: {len(state.history)}")
     
     # --- TRIPLE FAILSAFE (Brain Health) ---
     def is_valid_sk(k): 
