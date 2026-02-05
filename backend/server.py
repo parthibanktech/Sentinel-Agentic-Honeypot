@@ -141,10 +141,8 @@ class SessionState:
                             existing_items.append(clean_item)
                         continue
                     if key == "bankAccounts" and (len(clean_item) >= 10 and clean_item.isdigit()):
-                        fp = get_phone_fingerprint(clean_item)
-                        if not any(get_phone_fingerprint(ex) == fp for ex in self.extractedIntelligence.get("phoneNumbers", [])):
-                            self.extractedIntelligence["phoneNumbers"].append(clean_item)
-                        continue
+                        # No longer pushing accounts into phoneNumbers to keep data clean
+                        pass
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
                     if clean_item.lower() not in low_matches:
                         existing_items.append(clean_item)
@@ -389,11 +387,13 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     # Ultimate Phone Regex: Catches basically any 10-digit sequence starting with 6-9, 
     # optionally prefixed by +91/91, allowing lax separators (dots, dashes, spaces)
     raw_phones = re.findall(r'(?:\+?91[\-\.\s]?)?[6-9]\d{2,4}[\-\.\s]?\d{2,4}[\-\.\s]?\d{2,4}', combined_input)
-    # Filter to ensure we actually got at least 10 digits
+    # Filter to ensure we actually got a valid phone number length (10 digits or 12 with country code)
     clean_phones = []
     for p in raw_phones:
         digits = re.sub(r'\D', '', p)
-        if len(digits) >= 10:  # Matches 9876543210 (10) or 919876543210 (12)
+        # Indian mobile numbers are 10 digits. If we have 12, it's likely country code prefixed.
+        # If it's 16+ digits, it's an account number, not a phone.
+        if 10 <= len(digits) <= 13: 
             clean_phones.append(digits[-10:])
 
     heuristic_intel = {
