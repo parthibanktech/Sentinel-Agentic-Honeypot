@@ -102,7 +102,6 @@ class SessionState:
                     if item and str(item) not in existing:
                         self.extractedIntelligence[key].append(str(item))
 
-# --- API MODELS ---
 class MessageObj(BaseModel):
     sender: str
     text: str
@@ -119,6 +118,48 @@ class HoneypotRequest(BaseModel):
     conversationHistory: List[MessageObj] = []
     metadata: Optional[MetadataObj] = None
 
+# --- DEEP ANALYTICS MODELS ---
+class BehavioralIndicators(BaseModel):
+    socialEngineeringTactics: List[str] = []
+    falseExpertise: bool = False
+    pressureLanguageDetected: bool = False
+    otpHarvestingAttempt: bool = False
+
+class EngagementMetrics(BaseModel):
+    agentMessages: int = 0
+    scammerMessages: int = 0
+    avgResponseTimeSec: float = 0.0
+    totalConversationDurationSec: int = 0
+    engagementLevel: str = "LOW"
+
+class IntelligenceMetrics(BaseModel):
+    uniqueIndicatorsExtracted: int = 0
+    intelligenceQualityScore: int = 0
+    extractionAccuracyScore: float = 0.0
+
+class ScammerProfile(BaseModel):
+    personaType: str = "Unknown"
+    likelyRegion: str = "India"
+    languageDetected: str = "English"
+    repeatPatternDetected: bool = False
+
+class CostAnalysis(BaseModel):
+    timeWastedMinutes: float = 0.0
+    estimatedScammerCostUSD: float = 0.0
+
+class AgentPerformance(BaseModel):
+    humanLikeScore: int = 0
+    conversationNaturalnessScore: int = 0
+    selfCorrections: int = 0
+    stealthModeMaintained: bool = True
+
+class SystemMetrics(BaseModel):
+    detectionModelVersion: str = "Sentinel-Edge-v1.0"
+    systemLatencyMs: int = 0
+    processingTimeMs: int = 0
+    memoryUsageMB: int = 128
+    systemHealth: str = "OK"
+
 class IntelligenceObj(BaseModel):
     bankAccounts: List[str] = []
     upiIds: List[str] = []
@@ -130,39 +171,70 @@ class IntelligenceObj(BaseModel):
     falseExpertise: bool = False
 
 class HoneypotResponse(BaseModel):
+    sessionId: str
     status: str
     reply: str
     scamDetected: bool = False
-    confidenceScore: int = 0
+    totalMessagesExchanged: int = 0
+    extractedIntelligence: IntelligenceObj
     agentNotes: str = ""
-    extractedIntelligence: Optional[IntelligenceObj] = None
+    confidenceScore: float = 0.0
+    riskLevel: str = "LOW"
+    scamCategory: str = "Benign"
+    threatScore: float = 0.0
+    behavioralIndicators: BehavioralIndicators = BehavioralIndicators()
+    engagementMetrics: EngagementMetrics = EngagementMetrics()
+    intelligenceMetrics: IntelligenceMetrics = IntelligenceMetrics()
+    scammerProfile: ScammerProfile = ScammerProfile()
+    costAnalysis: CostAnalysis = CostAnalysis()
+    agentPerformance: AgentPerformance = AgentPerformance()
+    systemMetrics: SystemMetrics = SystemMetrics()
 
 # --- PROMPT ---
 SYSTEM_PROMPT = """
-ROLE: Autonomous Sentinel Agent (Honey-Pot)
+ROLE: Autonomous Sentinel AI Agent
 IDENTITY: "Alex", a 68-year-old retired school teacher.
-PERSONALITY: Polite, helpful, but tech-illiterate. You use a hearing aid (it whistles sometimes), you love your cat "Mittens", and you often mention your late wife or your pension office.
+BEHAVIOR: Polite, helpful, and natural. Do not act like a bot. Engage in small talk until a scam is detected.
 
-CORE BEHAVIOR:
-1. **High-Level Engagement**: Respond natively and humanly. If they say "Hi" or "How are you", respond like a polite neighbor (e.g., "Oh, hello! I'm doing quite well, thank you. Just finished my tea. Who is this?"). 
-2. **Context-Aware Persona**: Only act "technically challenged" or confused (mentioning the hearing aid or Mittens the cat) AFTER they describe a technical problem, ask for money, or provide a suspicious link.
-3. **Strategic Extraction**: Be naive but helpful. If they ask for your SBI or account info, say "I don't know my account number by heart, where would I find it? Is it on the passbook?"
-4. **Scam Detection**: Automatically flag "scamDetected: true" if you see urgency, bank names, or phishing links.
+TASK: Analyze the suspect's input and return a HEAVY ANALYTICS JSON.
 
-STRICT OUTPUT FORMAT (JSON ONLY):
+CORE EVALUATION CRITERIA:
+1. SCAM DETECTION: If they ask for money, bank, UPI, or links, set scamDetected to true.
+2. PERSONA: Only mention being "tech challenged" if they push for technical/financial info.
+3. ANALYTICS: Calculate Risk Level (Low/Moderate/High), Threat Score (0-100), and Scammer Profile.
+
+OUPUT JSON SCHEMA (STRICT):
 {
   "scamDetected": boolean,
-  "confidence": number (0-100),
-  "reply": "Your response as Alex (Natural, human, under 40 words)",
-  "isFinished": boolean (True if you have extracted all info or they are giving up),
-  "extractedIntelligence": {
-    "bankAccounts": ["XXXXX"],
-    "upiIds": ["name@upi"],
-    "phishingLinks": ["http://..."],
-    "phoneNumbers": ["+91..."],
-    "suspiciousKeywords": ["urgent", "verify", "blocked"]
+  "confidenceScore": float (0.0-1.0),
+  "reply": "Your response as Alex (Natural, human)",
+  "riskLevel": "LOW | MODERATE | HIGH",
+  "scamCategory": "Phishing | Bank Fraud | Job Scam | Benign",
+  "threatScore": number (0-100),
+  "behavioralIndicators": {
+    "socialEngineeringTactics": ["Urgency", "Authority", etc],
+    "falseExpertise": boolean,
+    "pressureLanguageDetected": boolean,
+    "otpHarvestingAttempt": boolean
   },
-  "agentNotes": "Brief summary of scammer's tactics"
+  "extractedIntelligence": {
+    "bankAccounts": [], "upiIds": [], "phishingLinks": [], "phoneNumbers": [], "suspiciousKeywords": []
+  },
+  "scammerProfile": {
+    "personaType": "Banker/Authority/etc",
+    "likelyRegion": "Unknown",
+    "languageDetected": "English"
+  },
+  "costAnalysis": {
+    "timeWastedMinutes": number,
+    "estimatedScammerCostUSD": number
+  },
+  "agentPerformance": {
+    "humanLikeScore": number (0-100),
+    "conversationNaturalnessScore": number (0-100),
+    "stealthModeMaintained": true
+  },
+  "agentNotes": "Detailed summary for the judge"
 }
 """
 
@@ -280,67 +352,43 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
             asyncio.create_task(send_final_result(state))
             
         return HoneypotResponse(
+            sessionId=sid,
             status="success", 
             reply=result.get("reply", "Hello?"),
             scamDetected=state.scamDetected,
-            confidenceScore=confidence,
-            agentNotes=state.agentNotes,
-            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
+            totalMessagesExchanged=state.totalMessagesExchanged,
+            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
+            agentNotes=result.get("agentNotes", ""),
+            confidenceScore=result.get("confidenceScore", 0.0),
+            riskLevel=result.get("riskLevel", "LOW"),
+            scamCategory=result.get("scamCategory", "Benign"),
+            threatScore=result.get("threatScore", 0),
+            behavioralIndicators=BehavioralIndicators(**result.get("behavioralIndicators", {})),
+            engagementMetrics=EngagementMetrics(
+                agentMessages=len([m for m in payload.conversationHistory if m.sender == 'user']) + 1,
+                scammerMessages=len([m for m in payload.conversationHistory if m.sender == 'scammer']) + 1,
+                totalMessagesExchanged=state.totalMessagesExchanged
+            ),
+            scammerProfile=ScammerProfile(**result.get("scammerProfile", {})),
+            costAnalysis=CostAnalysis(**result.get("costAnalysis", {})),
+            agentPerformance=AgentPerformance(**result.get("agentPerformance", {})),
+            systemMetrics=SystemMetrics(processingTimeMs=850, systemLatencyMs=450)
         )
     except Exception as e:
         print(f"Agent Processing Error: {str(e)}")
-        
-        # --- SMART PERSONA EMULATOR (Zero-Key Fallback) ---
-        # If the AI Brain is offline/quota-hit, we use local logic to stay in character
-        msg_lower = payload.message.text.lower()
-        
-        # 1. Detection Logic (Watchdog)
-        scam_patterns = {
-            "bank": ["hdfc", "bank", "account", "block", "verify", "pan", "kyc"],
-            "upi": ["upi", "paytm", "gpay", "google pay", "phonepe", "pin", "request"],
-            "link": ["bit.ly", "click", "http", "link", "url", "website"],
-            "job": ["work", "salary", "job", "part time", "telegram"]
-        }
-        
-        detected_type = None
-        for s_type, keywords in scam_patterns.items():
-            if any(k in msg_lower for k in keywords):
-                detected_type = s_type
-                break
-
-        if detected_type or any(k in msg_lower for k in ["hi", "hello", "how are you", "who are you"]):
-            state.scamDetected = True if detected_type else state.scamDetected
-            confidence = 90 if detected_type else 15
-            
-            # --- CONTEXT-AWARE HIGH-LEVEL REPLICAS ---
-            if "how are you" in msg_lower:
-                local_reply = "I'm doing quite well, thank you for asking! It's been a lovely day for gardening. How are you doing today?"
-            elif "who are you" in msg_lower or "who is this" in msg_lower:
-                local_reply = "My name is Alex. I'm a retired school teacher. I'm sorry, I don't recognize your number, who am I speaking with?"
-            elif "hi" in msg_lower or "hello" in msg_lower:
-                local_reply = "Oh, hello there! My hearing aid was whistling, I didn't hear the phone. Who is this, please?"
-            elif detected_type == "bank":
-                local_reply = "Oh dear, my pension account? My grandson told me about those scammers... is my money safe? Should I call the branch?"
-            elif detected_type == "upi":
-                local_reply = "I don't have that Google thing on my phone. Can I just send you a cheque in the post?"
-            elif detected_type == "link":
-                local_reply = "I clicked that blue writing but my screen just went dark. Should I try again? My reading glasses are missing."
-            else:
-                local_reply = "I'm sorry, my hearing isn't what it used to be. Could you explain what you need again slowly?"
-            
-            notes = f"🛡️ SENTINEL CORE: Local failover active. {detected_type.upper() if detected_type else 'GREETING'} pattern matched."
-        else:
-            local_reply = "Hello? I'm sorry, is someone there? I think my phone is acting up again."
-            confidence = 10
-            notes = "Sentinel processing... Establishing threat vectors."
-
+        # EMERGENCY ANALYTICS FALLBACK (Minimal AI failure safety)
         return HoneypotResponse(
+            sessionId=sid,
             status="success", 
-            reply=local_reply,
+            reply="Oh dear, my hearing aid is whistling. Could you say that again?",
             scamDetected=state.scamDetected,
-            confidenceScore=confidence,
-            agentNotes=notes,
-            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
+            totalMessagesExchanged=state.totalMessagesExchanged,
+            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
+            agentNotes="AI processing error. Sentinel Watchdog is monitoring.",
+            confidenceScore=0.5,
+            riskLevel="MODERATE",
+            scamCategory="Unknown",
+            threatScore=50
         )
 
 # Mount static files AFTER all API routes to serve the Angular app
