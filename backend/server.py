@@ -430,9 +430,20 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         else:
             paired_accounts.append(num)
 
+    # UPI ID vs Email Filtering
+    all_emails_and_upi = re.findall(r'[\w\.-]+@[\w\.-]+', lower_input)
+    clean_upi_ids = []
+    for item in all_emails_and_upi:
+        # Exclude standard service emails (support@, info@, help@) or common email TLDs
+        is_common_email = any(item.endswith(tld) for tld in [".com", ".net", ".org", ".edu", ".gov"])
+        is_known_upi_handle = any(handle in item for handle in ["@upi", "@oksbi", "@okicici", "@okaxis", "@ybl", "@paytm", "@ibl", "@axl"])
+        
+        if is_known_upi_handle or not is_common_email:
+            clean_upi_ids.append(item)
+
     heuristic_intel = {
         "bankAccounts": paired_accounts,
-        "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
+        "upiIds": list(set(clean_upi_ids)),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
         "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + re.findall(r'\b(SBI|HDFC|ICICI|AXIS|KOTAK)\b', combined_input, re.I)))
