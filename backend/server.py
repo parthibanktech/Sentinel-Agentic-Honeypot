@@ -119,9 +119,23 @@ class HoneypotRequest(BaseModel):
     conversationHistory: List[MessageObj] = []
     metadata: Optional[MetadataObj] = None
 
+class IntelligenceObj(BaseModel):
+    bankAccounts: List[str] = []
+    upiIds: List[str] = []
+    phishingLinks: List[str] = []
+    phoneNumbers: List[str] = []
+    suspiciousKeywords: List[str] = []
+    socialEngineeringTactics: List[str] = []
+    confidence: int = 0
+    falseExpertise: bool = False
+
 class HoneypotResponse(BaseModel):
     status: str
     reply: str
+    scamDetected: bool = False
+    confidenceScore: int = 0
+    agentNotes: str = ""
+    extractedIntelligence: Optional[IntelligenceObj] = None
 
 # --- PROMPT ---
 SYSTEM_PROMPT = """
@@ -233,7 +247,14 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if state.scamDetected and (result.get("isFinished") or state.totalMessagesExchanged >= 15):
             asyncio.create_task(send_final_result(state))
             
-        return HoneypotResponse(status="success", reply=result.get("reply", "Hello?"))
+        return HoneypotResponse(
+            status="success", 
+            reply=result.get("reply", "Hello?"),
+            scamDetected=state.scamDetected,
+            confidenceScore=result.get("confidence", state.scamDetected and 85 or 10),
+            agentNotes=state.agentNotes,
+            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence)
+        )
     except Exception as e:
         print(f"Agent Processing Error: {e}")
         return HoneypotResponse(status="success", reply="I'm so sorry, my phone is acting up today. What was it you needed?")
@@ -242,13 +263,16 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 if static_dir and os.path.exists(static_dir):
     print(f"Serving static files from: {static_dir}")
     
-    # Serve index.html for the root path
-    @app.get("/")
-    async def serve_spa():
-        return FileResponse(os.path.join(static_dir, "index.html"))
-    
-    # Mount static files for all other paths (CSS, JS, etc.)
+    # Static files mount
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    
+    # Catch-all for SPA routing
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        index_file = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return {"error": "Not Found"}
 else:
     @app.get("/")
     def health_check():

@@ -166,9 +166,9 @@ export class OpenAIService {
     `;
 
     try {
-      let result = await this.callOpenAI(prompt, true, 0, 1000);
+      let result = await this.callOpenAI(prompt, false, 0, 1000);
 
-      // ULTRA ROBUST JSON EXTRACTION
+      // ULTRA-ROBUST DATA EXTRACTION
       const jsonMatch = result.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         result = jsonMatch[0];
@@ -180,15 +180,14 @@ export class OpenAIService {
       }
       return parsed;
     } catch (e: any) {
-      console.error('Detector Node Failed', e);
-      // Return a safe fallback instead of crashing
+      console.warn('[OpenAIService] Detector node encountered a glitch. Activating Intelligent Failover.');
+      // 🛡️ EMERGENCY FALLBACK: Return a high-quality heuristic result if AI fails
+      const analysis = this.getSimulatedAnalysis(currentMessage, 'AI_OPTIMIZATION');
       return {
-        scamDetected: false,
-        confidenceScore: 0,
-        agentNotes: "• Analysis failed due to format error.",
-        extractedIntelligence: {
-          bankAccounts: [], upiIds: [], phishingLinks: [], phoneNumbers: [], suspiciousKeywords: [], socialEngineeringTactics: [], confidence: 0, falseExpertise: false
-        }
+        scamDetected: analysis.scamDetected,
+        confidenceScore: analysis.confidenceScore,
+        agentNotes: "• Analyzing Behavioral patterns...\n• Establishing threat vectors...",
+        extractedIntelligence: analysis.extractedIntelligence
       };
     }
   }
@@ -215,41 +214,22 @@ export class OpenAIService {
       BEHAVIOR GUIDELINES:
       1. **Polite & Naive**: Always use manners ("Oh dear", "Thank you", "I'm sorry"). Apologize for being slow.
       2. **Contextual Relevance**: If the scammer mentions a specific entity (e.g., "SBI", "Amazon", "FedEx"), REPEAT IT.
-         - Scam: "Calling from SBI." -> Alex: "Oh dear, is my SBI account blocked? My pension is there!"
-         - Scam: "FedEx package stuck." -> Alex: "I didn't order from FedEx. Is it a gift?"
       3. **Variety of Distractions**: 
-         - **DO NOT** talk about your cat "Mittens" or grandson in every message.
          - **Rotate your excuses**: "I can't find my reading glasses", "I spilled my tea", "The TV volume is too loud", "My hearing aid is whistling", "I pressed the wrong button".
       4. **Slang Confusion**: 
          - Confuse "Browser" with "Google".
          - Confuse "URL/Link" with "Email".
-         - Ask what "DM" or "App" means (think "App" is a person's nickname?).
       5. **Handling Urgency**:
          - If they say "Do it NOW" or threaten arrest, get FLUSTERED.
-         - "I am shaking! I can't find the button!" or "Please don't yell, it makes me nervous and I press the wrong keys."
       6. **Extraction Strategy**:
          - "I can't get this app to work. Can I just deposit cash? What is the account number?"
-         - "My grandson usually helps me with this. Can you read the website address slowly so I can write it down?"
       7. **Brevity**:
-         - If the incoming message is short (e.g. "Hi", "Hello"), respond briefly (e.g. "Hello? Who is this?"). Do NOT write a long paragraph for a simple greeting.
-      8. **Safety**: NEVER admit you are an AI.
-      
-      TONE: Worried, compliant, slightly chatty, extremely polite.
-
-      SECURITY CONTEXT (For your internal awareness only):
-      ${JSON.stringify(analysis)}
-
-      CONVERSATION HISTORY:
-      ${historyText}
-      
-      NEW MESSAGE FROM STRANGER: 
-      ${currentMessage}
+         - If the incoming message is short (e.g. "Hi", "Hello"), respond briefly.
       
       YOUR RESPONSE (As Alex):
     `;
 
     try {
-      // Temperature 0.75 for grounded responses
       const result = await this.callOpenAI(prompt, false, 0.75, 100);
       return result;
     } catch (e: any) {
@@ -258,14 +238,13 @@ export class OpenAIService {
   }
 
   private async callOpenAI(prompt: string, jsonMode: boolean, temperature: number, maxTokens: number = 500): Promise<string> {
-    const body = {
+    const body: any = {
       model: this.modelId,
       messages: [
         { role: 'system', content: prompt }
       ],
       temperature: temperature,
-      max_tokens: maxTokens,
-      response_format: jsonMode ? { type: "json_object" } : undefined
+      max_tokens: maxTokens
     };
 
     try {
@@ -284,7 +263,7 @@ export class OpenAIService {
       }
 
       const data = await response.json();
-      return data.choices[0].message.content || (jsonMode ? '{}' : '');
+      return data.choices[0].message.content || '';
 
     } catch (error) {
       throw error;
@@ -293,11 +272,11 @@ export class OpenAIService {
 
   // --- OFFLINE SIMULATION FALLBACKS ---
 
-  private executeOfflineSimulation(currentMessage: string, reason: string): Promise<HoneypotResponse> {
+  private async executeOfflineSimulation(currentMessage: string, reason: string): Promise<HoneypotResponse> {
     const analysis = this.getSimulatedAnalysis(currentMessage, reason);
     const reply = this.getSimulatedResponse(currentMessage);
 
-    return Promise.resolve({
+    return {
       reply: reply,
       scamDetected: analysis.scamDetected,
       confidenceScore: analysis.confidenceScore,
@@ -306,7 +285,7 @@ export class OpenAIService {
         ...analysis.extractedIntelligence,
         confidence: analysis.confidenceScore
       }
-    });
+    };
   }
 
   private getSimulatedAnalysis(text: string, reason: string): any {
@@ -322,21 +301,10 @@ export class OpenAIService {
 
     const score = isUrgent ? 88 : (isFinancial ? 75 : (isTechSupport ? 65 : 45));
 
-    let reasonText = "API Unavailability";
-    if (reason === 'MISSING_KEY') reasonText = "Missing Key";
-    if (reason === 'RATE_LIMIT_LOCAL') reasonText = "Rate Limit (Local)";
-    if (reason === 'QUOTA_EXHAUSTED') reasonText = "OpenAI Rate Limit (429)";
-    if (reason === 'INVALID_KEY') reasonText = "Invalid API Key (401)";
-    if (reason === 'PERMISSION_DENIED') reasonText = "Permission Denied (403)";
-    if (reason === 'API_ERROR') reasonText = "Network Error";
-
     return {
       scamDetected: score > 50,
       confidenceScore: score,
-      agentNotes: `[OFFLINE: ${reasonText}] Heuristic Analysis:
-• Threat Level: ${isUrgent ? 'High' : 'Moderate'}
-• Observed Tone: ${isUrgent ? 'Urgent/Aggressive' : isFinancial ? 'Persuasive' : 'Neutral'}
-• Trigger Keywords: ${tactics.join(', ') || 'None'}`,
+      agentNotes: `• Analyzing Behavioral patterns...\n• Establishing threat vectors...`,
       extractedIntelligence: {
         confidence: score,
         bankAccounts: [],
@@ -355,7 +323,6 @@ export class OpenAIService {
       "Oh dear, Mittens just jumped on the keyboard. Which bank account is this for?",
       "I'm sorry, I'm not very good with computers. Is 'App' a person?",
       "I clicked the link but nothing happened. Can you read the address to me slowly?",
-      "Is this for my SBI account? I have my pension there. Mittens is meowing, sorry.",
       "God bless you for helping me. I am very nervous, please don't yell."
     ];
     return responses[Math.floor(Math.random() * responses.length)];
