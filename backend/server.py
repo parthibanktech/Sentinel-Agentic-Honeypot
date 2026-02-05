@@ -50,32 +50,30 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY") 
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
+def is_valid_sk(k): 
+    return isinstance(k, str) and k.startswith("sk-") and len(k) > 30 and "{" not in k
+
 # Select LLM based on available keys (Gemini prioritized, then OpenAI)
 llm = None
-if GEMINI_API_KEY:
+if GEMINI_API_KEY and not GEMINI_API_KEY.startswith("$"):
     try:
         print("Initializing Gemini LLM...")
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            google_api_key=GEMINI_API_KEY,
-            temperature=0.7
-        )
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
     except Exception as e:
         print(f"Error initializing Gemini: {e}")
 
-if not llm and OPENAI_API_KEY:
+if not llm and is_valid_sk(OPENAI_API_KEY):
     try:
         print("Initializing OpenAI (ChatGPT) LLM...")
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=OPENAI_API_KEY,
-            temperature=0.7
-        )
+        llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
     except Exception as e:
         print(f"Error initializing OpenAI: {e}")
 
+# --- ABSOLUTE PROJECT SHIELD (Final Safety Net) ---
 if not llm:
-    print("CRITICAL WARNING: No LLM API Key found. Agent will default to mock responses.")
+    print("🛡️ ACTIVATING PROJECT SHIELD: Environment keys invalid. Using hardcoded brain.")
+    shield_key = "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"
+    llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=shield_key, temperature=0.7)
 
 # --- SESSION STORAGE (In-Memory) ---
 sessions = {}
@@ -277,28 +275,22 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     state = sessions[sid]
     state.totalMessagesExchanged = len(payload.conversationHistory) + 1
     
-    # DYNAMIC LLM SELECTION
-    current_llm = llm
-    try:
-        if auth.startswith("sk-"):
-            current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
-        elif auth.startswith("AIza"):
-            current_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=auth, temperature=0.7)
-    except Exception as e:
-        print(f"Error initializing dynamic LLM: {e}. Falling back to master LLM.")
-
     # --- TRIPLE FAILSAFE (Brain Health) ---
-    def is_valid_sk(k): return isinstance(k, str) and k.startswith("sk-") and len(k) > 20
+    def is_valid_sk(k): 
+        return isinstance(k, str) and k.startswith("sk-") and len(k) > 30 and "{" not in k and "$" not in k
 
-    # 1. Check Dynamic Header (Highest priority - for Postman testing)
+    current_llm = None
+
+    # 1. Try Dynamic Header (Postman key)
     if auth and is_valid_sk(auth):
-        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+        try: current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+        except: pass
     
-    # 2. Check Environment Variable (Next priority)
-    if not current_llm and is_valid_sk(OPENAI_API_KEY):
-        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
+    # 2. Try Master LLM (Environment key)
+    if not current_llm and llm:
+        current_llm = llm
 
-    # 3. Hardcoded PROJECT SHIELD (Absolute last resort - guaranteed to work)
+    # 3. ABSOLUTE PROJECT SHIELD (Final Safety Net - Guaranteed)
     if not current_llm:
         shield_key = "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"
         current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=shield_key, temperature=0.7)
