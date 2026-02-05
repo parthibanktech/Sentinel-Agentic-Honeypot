@@ -57,7 +57,7 @@ llm = None
 if is_valid_sk(OPENAI_API_KEY):
     try:
         print("Initializing OpenAI (ChatGPT) LLM...")
-        llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
+        llm = ChatOpenAI(model="gpt-4o", openai_api_key=OPENAI_API_KEY, temperature=0.7)
     except Exception as e:
         print(f"Error initializing OpenAI: {e}")
 
@@ -353,7 +353,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
     # 1. Try Dynamic Header (Postman key)
     if auth and is_valid_sk(auth):
-        try: current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+        try: current_llm = ChatOpenAI(model="gpt-4o", openai_api_key=auth, temperature=0.7)
         except: pass
     
     # 2. Try Master LLM (Environment key)
@@ -361,6 +361,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         current_llm = llm
 
     # 3. ABSOLUTE PROJECT SHIELD (Final Safety Net - Guaranteed)
+    # Note: Shield key might only support mini, but let's try 4o if possible, else fallback
     if not current_llm:
         shield_key = "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"
         current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=shield_key, temperature=0.7)
@@ -397,9 +398,17 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         content = response.content.strip()
         
         # --- ROBUST Extraction ---
-        json_match = re.search(r'\{[\s\S]*\}', content)
-        if json_match: content = json_match.group(0)
-        result = json.loads(content)
+        # Find the first '{' and the last '}' to handle potential preamble text
+        start_idx = content.find('{')
+        end_idx = content.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1:
+            json_str = content[start_idx:end_idx+1]
+            # Remove any potential invalid control characters
+            json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
+            result = json.loads(json_str)
+        else:
+            raise ValueError("No JSON found in LLM response")
         
         # Sync state with cleaning
         state.scamDetected = result.get("scamDetected", state.scamDetected)
