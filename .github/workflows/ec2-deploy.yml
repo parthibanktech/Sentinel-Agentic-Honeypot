@@ -25,6 +25,10 @@ jobs:
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           
+          # Create .ssh directory if it doesn't exist
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
           # Add EC2 to known hosts
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
           
