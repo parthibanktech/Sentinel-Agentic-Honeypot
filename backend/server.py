@@ -191,7 +191,7 @@ CORE STRATEGY:
 
 THREAT ANALYSIS (Identify & Extract):
 - **Psychological Tactics**: Urgency, Fear, Greed, Authority Impersonation.
-- **Payloads**: Bank Accounts, UPI IDs, Phishing Links, Phone Numbers.
+- **Payloads**: Dynamically identify and extract ANY Bank Entity, Account Number, UPI IDs, Phishing Links, or Phone Numbers mentioned by the scammer. 
 - **Intent**: Categorize as Phishing, Job Fraud, Bank Scam, or Tech Support Scam.
 
 OUTPUT JSON SCHEMA (STRICT):
