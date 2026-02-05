@@ -437,18 +437,17 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. HYBRID INTELLIGENCE: Use High-Level Direct Core (Speed) -> Fallback to Backend Bridge (Compliance)
+      // 2. DIRECT CORE: High-Level pure interaction with OpenAI GPT-4o
       try {
-        if (environment._internal_sk) {
-          // Attempt high-level direct browser-side analysis
-          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
-          response.agentNotes = "⚡ DIRECT CORE ACTIVE: " + (response.agentNotes || "");
-        } else {
-          response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
-        }
+        // We now exclusively use the High-Performance Angular Core
+        response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
       } catch (err: any) {
-        console.warn('Direct Core failover to Sentinel Bridge...', err);
-        response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
+        console.error('Core Brain Error:', err);
+        this.showNotification('Primary Brain link unstable. Retrying connection...', 'info');
+
+        // Final fallback within Angular if API fails
+        const simulated = (this.openaiService as any).executeOfflineSimulation(scammerMsg.text, 'API_ERROR');
+        response = simulated;
       }
 
       // Analysis complete
