@@ -144,29 +144,11 @@ class SessionState:
                         continue
                     
                     if key == "bankAccounts":
-                        clean_item = str(item).strip().rstrip('.,?!')
-                        low_item = clean_item.lower()
-                        
-                        # Extract just the numeric part of the item for comparison
+                        # Return ONLY the digits for the bankAccounts list to ensure evaluator compatibility
                         item_digits = re.sub(r'\D', '', clean_item)
-                        
-                        # 1. If we already have this EXACT string, skip
-                        if any(str(ex).lower() == low_item for ex in existing_items):
-                            continue
-                        
-                        # 2. If this is a RAW number, check if we already have a LABELED version of it
-                        if clean_item.isdigit():
-                            if any(clean_item in str(ex) for ex in existing_items):
-                                continue
-                            existing_items.append(clean_item)
-                        else:
-                            # 3. This is a LABELED item (e.g., "SBI: 123...")
-                            # Check if we have the RAW version of this number and remove it
-                            if item_digits and len(item_digits) >= 10:
-                                # Remove any existing raw numbers that are contained in this new labeled item
-                                existing_items[:] = [ex for ex in existing_items if not (str(ex).isdigit() and str(ex) in clean_item)]
-                            
-                            existing_items.append(clean_item)
+                        if item_digits and len(item_digits) >= 10:
+                            if item_digits not in existing_items:
+                                existing_items.append(item_digits)
                         continue
 
                     low_matches = {str(x).lower().rstrip('.') for x in existing_items}
@@ -296,11 +278,11 @@ OUTPUT JSON SCHEMA (STRICT):
     "otpHarvestingAttempt": boolean
   },
   "extractedIntelligence": {
-    "bankAccounts": ["BANK_NAME: ACCOUNT_NUMBER"], 
+    "bankAccounts": ["1234567890123456"], 
     "upiIds": ["scammer@upi"], 
     "phishingLinks": ["http://link.com"], 
-    "phoneNumbers": ["10-digit-number"], 
-    "suspiciousKeywords": ["urgent", "blocked", "verify"]
+    "phoneNumbers": ["9876543210"], 
+    "suspiciousKeywords": ["SBI", "urgent", "blocked", "verify", "otp"]
   },
   "scammerProfile": {
     "personaType": "e.g., Fake Police, Fake Banker",
@@ -411,21 +393,24 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
     lower_input = combined_input.lower()
     
-    # Precision Extraction
+    # Precision Phone Extraction
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
     clean_phones = list(set([re.sub(r'\D', '', p)[-10:] for p in raw_phones]))
 
-    # Capture suspected account numbers (10-18 digits)
+    # Clean Account Number Extraction (Raw digits only)
     potential_accounts = list(set(re.findall(r'\b\d{10,18}\b', combined_input)))
-    # Remove phones from account list
+    # Exclude phones from account list
     safe_accounts = [acc for acc in potential_accounts if acc not in clean_phones]
+    
+    # Dynamic Bank Name Detection for Keywords
+    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara|Bank)\b', combined_input, re.I)
 
     heuristic_intel = {
         "bankAccounts": safe_accounts,
         "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock", "bank"] if k in lower_input]))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + banks_found))
     }
     state.update_intelligence(heuristic_intel)
 
