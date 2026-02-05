@@ -23,18 +23,27 @@ Follow **DEPLOYMENT.md** - Copy-paste commands if you prefer manual control
 2. Click "Launch Instance"
 3. Settings:
    - Name: `sentinel-honeypot`
-   - AMI: Amazon Linux 2023
+   - AMI: **Amazon Linux 2023** or **Ubuntu Server 22.04**
    - Type: t2.small
    - Key: Create new → Download `.pem`
    - Security: Allow ports 22, 80, 8000 from 0.0.0.0/0
 4. Launch & copy Public IP
 
 ### Step 2: Connect (1 min)
+
+**Amazon Linux:**
 ```powershell
 ssh -i "your-key.pem" ec2-user@YOUR-EC2-IP
 ```
 
+**Ubuntu:**
+```powershell
+ssh -i "your-key.pem" ubuntu@YOUR-EC2-IP
+```
+
 ### Step 3: Deploy (5 min)
+
+**For Amazon Linux:**
 ```bash
 # Update & install Docker
 sudo yum update -y
@@ -42,6 +51,21 @@ sudo yum install docker git -y
 sudo service docker start
 sudo usermod -a -G docker ec2-user
 newgrp docker
+```
+
+**For Ubuntu:**
+```bash
+# Update & install Docker
+sudo apt-get update -y
+sudo apt-get install -y docker.io git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ubuntu
+newgrp docker
+```
+
+**Then (both systems):**
+```bash
 
 # Clone & setup
 cd ~

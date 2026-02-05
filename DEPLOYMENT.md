@@ -61,14 +61,22 @@ After deployment, you'll have:
 # Navigate to where you saved the .pem file
 cd Downloads
 
-# Connect (replace YOUR-EC2-IP with your actual IP)
+# Amazon Linux
 ssh -i "sentinel-key.pem" ec2-user@YOUR-EC2-IP
+
+# Ubuntu
+ssh -i "sentinel-key.pem" ubuntu@YOUR-EC2-IP
 ```
 
 **Mac/Linux:**
 ```bash
 chmod 400 sentinel-key.pem
+
+# Amazon Linux
 ssh -i sentinel-key.pem ec2-user@YOUR-EC2-IP
+
+# Ubuntu
+ssh -i sentinel-key.pem ubuntu@YOUR-EC2-IP
 ```
 
 Type `yes` when asked about authenticity.
@@ -79,6 +87,7 @@ Type `yes` when asked about authenticity.
 
 Once connected to EC2, **copy and paste these commands**:
 
+**For Amazon Linux:**
 ```bash
 # 1. Update system
 sudo yum update -y
@@ -93,7 +102,28 @@ sudo yum install git -y
 
 # 4. Activate Docker permissions
 newgrp docker
+```
 
+**For Ubuntu:**
+```bash
+# 1. Update system
+sudo apt-get update -y
+
+# 2. Install Docker
+sudo apt-get install -y docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ubuntu
+
+# 3. Install Git
+sudo apt-get install -y git
+
+# 4. Activate Docker permissions
+newgrp docker
+```
+
+**Then (both systems):**
+```bash
 # 5. Clone repository
 cd ~
 git clone https://github.com/parthibanktech/Sentinel-Agentic-Honeypot.git

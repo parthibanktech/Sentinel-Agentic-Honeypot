@@ -13,7 +13,7 @@
 3. **Configure**:
    ```
    Name: sentinel-honeypot
-   AMI: Amazon Linux 2023
+   AMI: Amazon Linux 2023 OR Ubuntu Server 22.04
    Instance Type: t2.small
    Key Pair: Create new → Download .pem file
    ```
@@ -29,18 +29,44 @@
 
 ### Step 2: One-Time EC2 Setup (2 min)
 
-Connect to EC2:
+**Connect to EC2:**
+
+Amazon Linux:
 ```bash
 ssh -i "your-key.pem" ec2-user@YOUR-EC2-IP
 ```
 
-Run this **ONE-TIME setup** (copy-paste all):
+Ubuntu:
+```bash
+ssh -i "your-key.pem" ubuntu@YOUR-EC2-IP
+```
+
+**Run this ONE-TIME setup:**
+
+**For Amazon Linux:**
 ```bash
 # Install Docker & Git
 sudo yum update -y
 sudo yum install docker git -y
 sudo service docker start
 sudo usermod -a -G docker ec2-user
+
+# Clone repo (first time only)
+cd ~
+git clone https://github.com/parthibanktech/Sentinel-Agentic-Honeypot.git
+
+# Done! Exit
+exit
+```
+
+**For Ubuntu:**
+```bash
+# Install Docker & Git
+sudo apt-get update -y
+sudo apt-get install -y docker.io git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ubuntu
 
 # Clone repo (first time only)
 cd ~
@@ -62,7 +88,7 @@ Add these **5 secrets**:
 |------------|-------|
 | `EC2_SSH_PRIVATE_KEY` | Content of your `.pem` file (entire file) |
 | `EC2_HOST` | Your EC2 Public IP (e.g., `54.123.45.67`) |
-| `EC2_USER` | `ec2-user` |
+| `EC2_USER` | `ec2-user` (Amazon Linux) or `ubuntu` (Ubuntu) |
 | `OPENAI_API_KEY` | Your OpenAI API key |
 | `HONEYPOT_API_KEY` | `sentinel-master-key` |
 
