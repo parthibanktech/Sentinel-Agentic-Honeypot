@@ -287,15 +287,21 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     except Exception as e:
         print(f"Error initializing dynamic LLM: {e}. Falling back to master LLM.")
 
-    # --- TRIPLE FAILSAFE ---
+    # --- TRIPLE FAILSAFE (Brain Health) ---
+    def is_valid_sk(k): return isinstance(k, str) and k.startswith("sk-") and len(k) > 20
+
+    # 1. Check Dynamic Header (Highest priority - for Postman testing)
+    if auth and is_valid_sk(auth):
+        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=auth, temperature=0.7)
+    
+    # 2. Check Environment Variable (Next priority)
+    if not current_llm and is_valid_sk(OPENAI_API_KEY):
+        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
+
+    # 3. Hardcoded PROJECT SHIELD (Absolute last resort - guaranteed to work)
     if not current_llm:
-         # 1. Try environment key
-         if OPENAI_API_KEY:
-             current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=OPENAI_API_KEY, temperature=0.7)
-         # 2. Hardcoded project fallback (Final safety net)
-         else:
-             project_fallback = "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"
-             current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=project_fallback, temperature=0.7)
+        shield_key = "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"
+        current_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=shield_key, temperature=0.7)
 
     if not current_llm:
         return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
