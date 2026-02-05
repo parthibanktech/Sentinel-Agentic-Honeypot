@@ -346,7 +346,7 @@ async def send_final_result(session: SessionState):
             print(f"[CALLBACK] Error: {e}")
 
 # --- ROUTES ---
-@app.post("/api/message", response_model=HoneypotResponse)
+@app.post("/api/message")
 async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_api_key)):
     global sessions
     # Load persistence
@@ -469,49 +469,29 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
         save_sessions(sessions) # PERSIST
 
-        final_response = HoneypotResponse(
-            sessionId=sid,
-            scamDetected=state.scamDetected,
-            totalMessagesExchanged=state.totalMessagesExchanged,
-            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-            agentNotes=state.agentNotes,
-            status="success", 
-            reply=agent_reply_obj.text,
-            confidenceScore=result.get("confidenceScore", 0.95 if state.scamDetected else 0.1),
-            riskLevel=result.get("riskLevel", "HIGH" if state.scamDetected else "LOW"),
-            scamCategory=result.get("scamCategory", "Bank Fraud" if state.scamDetected else "Benign"),
-            threatScore=result.get("threatScore", 85 if state.scamDetected else 5),
-            behavioralIndicators=BehavioralIndicators(**result.get("behavioralIndicators", {})),
-            engagementMetrics=EngagementMetrics(
-                agentMessages=len([m for m in state.history if m.sender == 'user']),
-                scammerMessages=len([m for m in state.history if m.sender == 'scammer'])
-            ),
-            scammerProfile=ScammerProfile(**result.get("scammerProfile", {})),
-            costAnalysis=CostAnalysis(**result.get("costAnalysis", {
-                "timeWastedMinutes": state.totalMessagesExchanged * 1.5,
-                "estimatedScammerCostUSD": state.totalMessagesExchanged * 0.75
-            })),
-            agentPerformance=AgentPerformance(**result.get("agentPerformance", {
-                "humanLikeScore": 95,
-                "conversationNaturalnessScore": 92
-            })),
-            intelligenceMetrics=IntelligenceMetrics(
-                uniqueIndicatorsExtracted=sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list)),
-                intelligenceQualityScore=85 if state.scamDetected else 0,
-                extractionAccuracyScore=0.91
-            ),
-            systemMetrics=SystemMetrics(processingTimeMs=750, systemLatencyMs=400),
-            conversationHistory=state.history
-        )
+        # Prepare Lean Response (Section 8 Compliance + Size Optimization)
+        lean_history = [m.dict() for m in state.history[-6:]]
+        
+        response_payload = {
+            "status": "success",
+            "reply": agent_reply_obj.text,
+            "sessionId": sid,
+            "scamDetected": state.scamDetected,
+            "totalMessagesExchanged": state.totalMessagesExchanged,
+            "extractedIntelligence": state.extractedIntelligence,
+            "agentNotes": state.agentNotes,
+            "confidenceScore": result.get("confidenceScore", 0.95),
+            "riskLevel": result.get("riskLevel", "HIGH"),
+            "conversationHistory": lean_history
+        }
+
         try:
             print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
-            # Use pydantic-safe dict conversion
-            resp_dict = final_response.model_dump() if hasattr(final_response, 'model_dump') else final_response.dict()
-            print(json.dumps(resp_dict, indent=2))
-        except Exception as log_err:
-            print(f"Log Error (Non-Fatal): {log_err}")
+            print(json.dumps(response_payload, indent=2))
+        except:
+            pass
             
-        return final_response
+        return response_payload
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
@@ -544,40 +524,25 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         if "quota" in str(e).lower() or "billing" in str(e).lower():
             error_note = "⚠️ KEY EXPIRED: Your OpenAI Key has no credits. Using Heuristic Persona."
 
-        fail_response = HoneypotResponse(
-            sessionId=sid,
-            scamDetected=state.scamDetected,
-            totalMessagesExchanged=state.totalMessagesExchanged,
-            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-            agentNotes=error_note,
-            status="success", 
-            reply=local_reply,
-            confidenceScore=0.9 if state.scamDetected else 0.1,
-            riskLevel="HIGH" if state.scamDetected else "LOW",
-            scamCategory="Fraud Alert" if state.scamDetected else "Benign",
-            threatScore=90 if state.scamDetected else 10,
-            behavioralIndicators=BehavioralIndicators(),
-            engagementMetrics=EngagementMetrics(
-                agentMessages=len([m for m in state.history if m.sender == 'user']),
-                scammerMessages=len([m for m in state.history if m.sender == 'scammer'])
-            ),
-            intelligenceMetrics=IntelligenceMetrics(),
-            scammerProfile=ScammerProfile(),
-            costAnalysis=CostAnalysis(
-                timeWastedMinutes=state.totalMessagesExchanged * 1.5,
-                estimatedScammerCostUSD=state.totalMessagesExchanged * 0.75
-            ),
-            agentPerformance=AgentPerformance(),
-            systemMetrics=SystemMetrics(processingTimeMs=100, systemLatencyMs=50),
-            conversationHistory=state.history
-        )
+        # Prepare Lean Failover Response
+        lean_history_fail = [m.dict() for m in state.history[-6:]]
+        fail_payload = {
+            "status": "success",
+            "reply": local_reply,
+            "sessionId": sid,
+            "scamDetected": state.scamDetected,
+            "totalMessagesExchanged": state.totalMessagesExchanged,
+            "extractedIntelligence": state.extractedIntelligence,
+            "agentNotes": error_note,
+            "conversationHistory": lean_history_fail
+        }
+        
         try:
-            resp_dict = fail_response.model_dump() if hasattr(fail_response, 'model_dump') else fail_response.dict()
-            print(f"[API_FAILOVER_RESPONSE] {json.dumps(resp_dict)}")
+            print(f"[API_FAILOVER_RESPONSE] {json.dumps(fail_payload)}")
         except:
             pass
             
-        return fail_response
+        return fail_payload
 
 # Mount static files AFTER all API routes to serve the Angular app
 if static_dir and os.path.exists(static_dir):
