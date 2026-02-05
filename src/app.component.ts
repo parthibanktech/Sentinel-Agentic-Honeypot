@@ -437,18 +437,12 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. Routing Logic
-      if (this.backendMode() === 'PYTHON_LANGGRAPH') {
-        // Try Python Server
-        try {
-          response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
-        } catch (backendErr: any) {
-          console.error('Python Backend Error:', backendErr);
-          throw new Error('Connection to Sentinel Central Intelligence lost. Please check server status.');
-        }
-      } else {
-        // Use Client Service directly
-        response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+      // 2. ALWAYS USE BACKEND BRIDGE (Prevents CORS and provides Postman support)
+      try {
+        response = await this.backendService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata, this.sessionId());
+      } catch (backendErr: any) {
+        console.error('Sentinel Bridge Error:', backendErr);
+        throw new Error('Connection to Sentinel Central Intelligence lost. Please check server status.');
       }
 
       // Analysis complete
