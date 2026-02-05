@@ -58,6 +58,9 @@ jobs:
           HONEYPOT_API_KEY=${HONEYPOT_KEY}
           PORT=8000
           ENVEOF
+
+          # Inject key into Angular environment
+          sed -i "s/PLACEHOLDER_OPENAI_KEY/${OPENAI_KEY}/g" src/environments/environment.ts
           
           # Stop old container
           echo "🛑 Stopping old container..."
