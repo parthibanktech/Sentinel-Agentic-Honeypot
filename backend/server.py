@@ -144,12 +144,28 @@ class SessionState:
                         continue
                     
                     if key == "bankAccounts":
-                        # If heuristic found a labeled one "Bank: 123", prefer it over just "123"
-                        low_matches = {str(x).lower() for x in existing_items}
-                        if clean_item.lower() not in low_matches:
-                            # If this is just a number and we already have a labeled version of it, skip
-                            if clean_item.isdigit() and any(clean_item in str(x) for x in existing_items):
+                        clean_item = str(item).strip().rstrip('.,?!')
+                        low_item = clean_item.lower()
+                        
+                        # Extract just the numeric part of the item for comparison
+                        item_digits = re.sub(r'\D', '', clean_item)
+                        
+                        # 1. If we already have this EXACT string, skip
+                        if any(str(ex).lower() == low_item for ex in existing_items):
+                            continue
+                        
+                        # 2. If this is a RAW number, check if we already have a LABELED version of it
+                        if clean_item.isdigit():
+                            if any(clean_item in str(ex) for ex in existing_items):
                                 continue
+                            existing_items.append(clean_item)
+                        else:
+                            # 3. This is a LABELED item (e.g., "SBI: 123...")
+                            # Check if we have the RAW version of this number and remove it
+                            if item_digits and len(item_digits) >= 10:
+                                # Remove any existing raw numbers that are contained in this new labeled item
+                                existing_items[:] = [ex for ex in existing_items if not (str(ex).isdigit() and str(ex) in clean_item)]
+                            
                             existing_items.append(clean_item)
                         continue
 
