@@ -301,12 +301,16 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     sender_text = payload.message.sender
     combined_input = f"{sender_text} {msg_text}".lower()
     
+    # Extract actual bank names and potential account numbers
+    banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara)\b', combined_input, re.I)
+    acc_numbers = re.findall(r'\b\d{9,18}\b', combined_input) # Matches typical 9-18 digit account numbers
+    
     heuristic_intel = {
-        "bankAccounts": re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|Refund|Bank|Account|Acc)\b', combined_input, re.I),
+        "bankAccounts": list(set(banks_found + acc_numbers)),
         "upiIds": re.findall(r'[\w.-]+@[\w.-]+', combined_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', combined_input),
         "phoneNumbers": re.findall(r'\b(?:\+?91|0)?[6-9]\d{9}\b', combined_input),
-        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support"] if k in combined_input]
+        "suspiciousKeywords": [k for k in ["verify", "blocked", "suspended", "urgent", "otp", "login", "win", "lottery", "support", "bank", "account", "refund", "kyc"] if k in combined_input]
     }
     state.update_intelligence(heuristic_intel)
 
