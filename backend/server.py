@@ -338,9 +338,11 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     }
     state.update_intelligence(heuristic_intel)
 
-    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in payload.conversationHistory])
-    current_msg = f"SCAMMER: {payload.message.text}"
-    full_prompt = f"{SYSTEM_PROMPT}\n\nHISTORY:\n{history_str}\n\n{current_msg}\n\nRespond strictly in JSON."
+    # Build cumulative context for GPT-4o
+    history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history])
+    prev_notes = state.agentNotes or "No previous notes."
+    
+    full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nTASK: Update the forensic audit in 'agentNotes' to reflect the ENTIRE session accurately. Respond strictly in JSON."
     
     try:
         response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
