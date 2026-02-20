@@ -349,9 +349,12 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     # Trigger background forensic analysis
     asyncio.create_task(perform_background_analysis(sid, payload.message.text, state.scamScore, ml_conf, history_texts))
 
-    # Standard note if LLM hasn't finished yet
-    if not state.agentNotes or "[System" not in state.agentNotes:
-        state.agentNotes = f"Score:{state.scamScore} ({state.riskLevel}) Type:{state.attackType} ML:{ml_conf:.2f}"
+    # Standard note if LLM hasn't finished yet (Human-quality fallback)
+    if not state.agentNotes or "[Confidence" not in state.agentNotes:
+        if state.scamDetected:
+            state.agentNotes = f"Active surveillance initiated. Potential {state.attackType} detected. High-priority intelligence gathering in progress."
+        else:
+            state.agentNotes = "Sentinel monitoring active. Initial engagement appears benign. Establishing trust persona."
 
     # Finalize state for the immediate response
     state.history.append(MessageObj(sender="user", text=reply, timestamp=int(time.time() * 1000)))
