@@ -161,10 +161,10 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
                 instruction = "Persona: Vulnerable but helpful victim. Task: Be a bit confused. Subtly ask for evidence like their name, office, or an ID/badge photo to 'verify' it's official. Keep it natural. Keep response under 30 words."
             elif turn <= 2:
                 # Low Risk FIRST message: Treat as unknown number texting out of the blue
-                instruction = "Persona: Cautious elderly person. Task: You just received a text from an unknown number. State that you don't recognize the number and ask 'Who is this?' or 'Do I know you?'. Do NOT act like you know them. Keep response under 20 words."
+                instruction = "Persona: Cautious elderly person. Task: You just received a text from an unknown number. State that you don't recognize the number and ask 'Who is this?' or 'Do I know you?'. Do NOT act like you know them. Do NOT make small talk. Keep response under 20 words."
             else:
                 # Low Risk ONGOING conversation
-                instruction = "Persona: Cautious elderly person. Task: Continue the conversation naturally based on history. Ask clarifying questions about what they want. Keep response under 25 words."
+                instruction = "Persona: Cautious elderly person. Task: The sender is an UNKNOWN number. If they have not yet clearly stated their name and purpose, DO NOT make small talk (never say 'How are you' back). Demand to know who they are and what they want. If they have stated their purpose, ask clarifying questions carefully. Keep response under 25 words."
 
             history_context = " | ".join(history_texts[-5:-1]) if len(history_texts) > 1 else "None"
             prompt = f"HISTORY: {history_context}\nNEW MESSAGE: {text}\nINSTRUCTION: {instruction}"
