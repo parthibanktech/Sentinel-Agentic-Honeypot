@@ -45,11 +45,11 @@ class EngagementMetrics(BaseModel):
 
 class HoneypotResponse(BaseModel):
     """
-    Lean response - but MUST include scoring fields to maximize Response Structure points.
+    Mandatory schema for Hackathon Evaluation (Response Structure: 20 points).
     """
     status: str = "success"
-    reply: str = ""
-    scamDetected: Optional[bool] = False
-    extractedIntelligence: Optional[IntelligenceObj] = None
+    reply: str
+    scamDetected: bool
+    extractedIntelligence: IntelligenceObj
     engagementMetrics: Optional[EngagementMetrics] = None
     agentNotes: Optional[str] = ""
