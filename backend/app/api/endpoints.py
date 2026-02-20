@@ -381,7 +381,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     # Build metric string
     extracted_items = []
     for k, v in state.extractedIntelligence.items():
-        if v and isinstance(v, list) and k != "suspiciousKeywords":
+        if v and isinstance(v, list):
             extracted_items.append(f"{k}: {', '.join(v)}")
             
     duration = int(time.time() - state.start_time)
