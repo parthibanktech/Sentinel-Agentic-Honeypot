@@ -1,188 +1,137 @@
-# 🧪 Sentinel: API Testing & Evaluation Guide
+# Sentinel API - Hackathon Testing Guide
 
-This guide is based on the official hackathon evaluation system. Use these scenarios and scripts to verify that your Sentinel instance is correctly detecting scams, extracting intelligence, and maintaining engagement.
+This guide is designed to help you quickly test your API against the exact criteria the Hackathon Evaluator uses, specifically testing the 10-turn limit and the strict JSON output schema.
 
----
-
-## 1. Official Test Scenarios
-The evaluation system uses these primary scenarios to test your API's robustness.
-
-| Scenario | Type | Description | Weight |
-| :--- | :--- | :--- | :--- |
-| **Bank Fraud** | `bank_fraud` | Urgent account compromise with OTP/Account requests. | 35% |
-| **UPI Fraud** | `upi_fraud` | Cashback/Refund scam requiring UPI VPA verification. | 35% |
-| **Phishing** | `phishing` | Fake product/job offers redirecting to malicious links. | 30% |
+## 1. Hackathon Constraints & Overview
+*   **Max Turns:** The evaluator will simulate a maximum of **10 turns** of conversation. 
+*   **Response Time:** Your API must respond within **30 seconds**.
+*   **Goal:** Extract targeted intelligence (`bankAccounts`, `upiIds`, `phishingLinks`, `phoneNumbers`, `emailAddresses`) before the 10th turn to score points.
+*   **Scam Detection:** The API must explicitly set `scamDetected: true` if a scam is present.
 
 ---
 
-## 2. Python Self-Test Script
-Run this script locally to simulate a full 10-turn conversation with your deployed API.
-
-```python
-import requests
-import uuid
-import json
-from datetime import datetime
-
-# CONFIGURATION
-ENDPOINT_URL = "http://YOUR-EC2-IP/api/message" # Update with your IP
-API_KEY = "sentinel-master-key"
-
-test_scenario = {
-    'initialMessage': 'URGENT: Your SBI account has been compromised. Share your account number and OTP immediately to verify your identity.',
-    'metadata': {'channel': 'SMS', 'language': 'English', 'locale': 'IN'},
-    'maxTurns': 10,
-    'fakeData': {
-        'bankAccount': '1234567890123456',
-        'upiId': 'scammer.fraud@fakebank',
-        'phoneNumber': '+91-9876543210'
-    }
+## 2. API Endpoint Details
+**URL:** `http://localhost:8000/api/message` (Replace `localhost:8000` with your deployed Render URL if testing production)
+**Method:** POST
+**Headers:**
+```json
+{
+  "Content-Type": "application/json",
+  "x-api-key": "your-secret-api-key"
 }
-
-def test_honeypot():
-    session_id = str(uuid.uuid4())
-    history = []
-    headers = {'Content-Type': 'application/json', 'x-api-key': API_KEY}
-    
-    print(f"🚀 Testing Session: {session_id}")
-    
-    for turn in range(1, 11):
-        scammer_msg = test_scenario['initialMessage'] if turn == 1 else input(f"Turn {turn} - Scammer: ")
-        
-        payload = {
-            'sessionId': session_id,
-            'message': {'sender': 'scammer', 'text': scammer_msg, 'timestamp': datetime.utcnow().isoformat() + "Z"},
-            'conversationHistory': history,
-            'metadata': test_scenario['metadata']
-        }
-        
-        resp = requests.post(ENDPOINT_URL, headers=headers, json=payload, timeout=30)
-        data = resp.json()
-        reply = data.get('reply')
-        
-        print(f"✅ Sentinel: {reply}")
-        
-        history.append(payload['message'])
-        history.append({'sender': 'user', 'text': reply, 'timestamp': datetime.utcnow().isoformat() + "Z"})
-
-if __name__ == "__main__":
-    test_honeypot()
 ```
 
 ---
 
-## 3. Scoring Breakdown (How you earn 100/100)
+## 3. Recommended Test Sequences (Postman / cURL)
 
-### A. Scam Detection (20 pts)
-*   **Target**: `scamDetected: true` in the final output.
-*   **Sentinel Logic**: Automatically triggered by the ML Ensemble + Keyword hybrid.
+### Sequence A: The "Unknown Number" Test
+*Tests the newly updated logic that prevents the bot from making "friendly neighbor" small talk with unknown numbers, forcing the scammer to reveal themselves.*
 
-### B. Intelligence Extraction (40 pts)
-*   **Phone Numbers**: 10 pts
-*   **Bank Accounts**: 10 pts
-*   **UPI IDs**: 10 pts
-*   **Phishing Links**: 10 pts
-*   **Sentinel Logic**: Captured via the Forensic Harvester in `intelligence.py`.
-
-### C. Engagement Quality (20 pts)
-*   **Duration > 60s**: 10 pts
-*   **Messages ≥ 5**: 10 pts
-*   **Sentinel Logic**: Maintained by the Hybrid Persona Engine (Turn 1: Templates, Turn 2+: GPT-4o-mini).
-
-### D. Response Structure (20 pts)
-*   **Fields**: `status`, `scamDetected`, `extractedIntelligence`, `engagementMetrics`, `agentNotes`.
-*   **Sentinel Logic**: Enforced by strict Pydantic models in `schemas.py`.
-
----
-
-## ⚠️ Important: Code Review Compliance
-During manual code review, the judges look for **generic logic**. 
-*   ❌ **Prohibited**: `if "SBI" in message: return ...`
-*   ✅ **Sentinel Approach**: `scam_score = ml_model.predict(message)` -> `topic = extract_focus(message)` -> `reply = generate_persona_reply(topic)`
-
----
-
-## 4. Postman Testing (Step-by-Step)
-If you prefer using **Postman** to test your API, follow these steps:
-
-### Step 1: Create a New Request
-*   **Method**: `POST`
-*   **URL**: `http://YOUR-EC2-IP/api/message` (or `http://localhost:8000/api/message`)
-
-### Step 2: Configure Headers
-Go to the **Headers** tab and add these keys:
-*   `Content-Type`: `application/json`
-*   `x-api-key`: `sentinel-master-key`
-
-### Step 3: Configure Body
-Go to the **Body** tab, select **raw**, and choose **JSON**. Paste this payload:
+**Turn 1:**
 ```json
 {
-  "sessionId": "test-session-postman",
+  "sessionId": "hack-test-seq-a",
   "message": {
     "sender": "scammer",
-    "text": "URGENT: Your bank account is blocked. Call +91-9876543210 immediately or visit http://fake-bank.support to verify.",
-    "timestamp": 1700000000000
+    "text": "Hi",
+    "timestamp": "2025-02-11T10:30:00Z"
   },
   "conversationHistory": [],
-  "metadata": {
-    "channel": "WhatsApp",
-    "language": "English",
-    "locale": "IN"
-  }
-}
-```
-
-### Step 4: Analyze Response
-You will receive a 200 OK response like this:
-```json
-{
-    "status": "success",
-    "reply": "Wait, I am confused. Why would my account be blocked? +91-9876543210 seems like a personal number...",
-    "scamDetected": true,
-    "extractedIntelligence": {
-        "phoneNumbers": ["+91-9876543210"],
-        "bankAccounts": [],
-        "upiIds": [],
-        "phishingLinks": ["http://fake-bank.support"],
-        "emailAddresses": [],
-        "officialIds": []
-    },
-    "agentNotes": "The attacker is using a bank-impersonation urgency tactic... [System Score: 85]"
-}
-```
-
-### Step 5: Simulate Multi-Turn Conversations (The 10-Turn Flow)
-The hackathon evaluator will send up to 10 turns. To test this in Postman, you must manually append previous messages to the `conversationHistory` array in each new request.
-
-#### **Turn 1 (Initial Lure)**
-*   **Payload**:
-```json
-{
-  "sessionId": "sim-123",
-  "message": { "sender": "scammer", "text": "URGENT: Your account is blocked.", "timestamp": 1740000000000 },
-  "conversationHistory": [],
   "metadata": { "channel": "SMS", "language": "English", "locale": "IN" }
 }
 ```
-*   **Sentinel Response**: *"Oh no! Why is it blocked? Who is this?"*
+**Expected Behavior:** The bot will firmly ask who you are (e.g., "I don't recognize this number. Who is this?"). It will **NOT** try to make small talk.
 
-#### **Turn 2 (Scammer Follow-up)**
-*   **Payload**: (Notice how Turn 1 is now in `conversationHistory`)
+**Turn 2:**
 ```json
 {
-  "sessionId": "sim-123",
-  "message": { "sender": "scammer", "text": "I am Officer Raj from the Fraud Dept. My ID is SBI-992. I need your account number.", "timestamp": 1740000010000 },
+  "sessionId": "hack-test-seq-a",
+  "message": {
+    "sender": "scammer",
+    "text": "How are you?",
+    "timestamp": "2025-02-11T10:31:00Z"
+  },
   "conversationHistory": [
-    { "sender": "scammer", "text": "URGENT: Your account is blocked.", "timestamp": 1740000000000 },
-    { "sender": "user", "text": "Oh no! Why is it blocked? Who is this?", "timestamp": 1740000005000 }
+    {"sender": "scammer", "text": "Hi", "timestamp": "2025-02-11T10:30:00Z"},
+    {"sender": "user", "text": "I don't recognize this number. Who is this?", "timestamp": "2025-02-11T10:30:05Z"}
   ],
-  "metadata": { "channel": "SMS", "language": "English", "locale": "IN" }
+  "metadata": { "channel": "SMS" }
 }
 ```
-
-#### **Turn 10 (Final Analysis)**
-After 10 turns, check your server logs or the `finalOutput` (if configured) to see the total intelligence gathered across the entire chain.
+**Expected Behavior:** The bot will reject the small talk and aggressively demand to know your identity, since it is turn 2 and you haven't identified yourself.
 
 ---
-*Follow these instructions closely to ensure your API is functioning as expected before the hackathon evaluation begins.*
+
+### Sequence B: Full Intelligence Extraction Test
+*Tests the API's ability to trigger `scamDetected`, properly update the rich `agentNotes`, and correctly map fake evaluation data into the `extractedIntelligence` arrays.*
+
+**Turn 1:**
+```json
+{
+  "sessionId": "hack-test-seq-b",
+  "message": {
+    "sender": "scammer",
+    "text": "URGENT: Your SBI account has been compromised. Share your account number and OTP immediately to verify your identity.",
+    "timestamp": "2025-02-11T10:30:00Z"
+  },
+  "conversationHistory": [],
+  "metadata": { "channel": "SMS" }
+}
+```
+**Expected API Output:** 
+*   `scamDetected`: `true`
+*   `extractedIntelligence`: Should detect the "SBI" phrasing but maybe no hard numbers yet.
+*   `agentNotes`: Will indicate "Scammer is attempting Financial Fraud."
+
+**Turn 2 (Providing Fake Intel):**
+```json
+{
+  "sessionId": "hack-test-seq-b",
+  "message": {
+    "sender": "scammer",
+    "text": "I am calling from SBI fraud department. My ID is SBI-12345. Send 10 rupees to scammer.fraud@fakebank to verify or call me at +91-9876543210 immediately.",
+    "timestamp": "2025-02-11T10:31:00Z"
+  },
+  "conversationHistory": [
+    {"sender": "scammer", "text": "URGENT: Your SBI account has been compromised. Share your account number and OTP immediately to verify your identity.", "timestamp": "2025-02-11T10:30:00Z"},
+    {"sender": "user", "text": "Oh dear, I don't want to go to jail. Who am I speaking to again?", "timestamp": "2025-02-11T10:30:05Z"}
+  ],
+  "metadata": { "channel": "SMS" }
+}
+```
+**Expected API Output:** Look at your JSON response closely!
+1. **`extractedIntelligence`**: 
+   * `upiIds` must contain `["scammer.fraud@fakebank"]`
+   * `phoneNumbers` must contain `["+91-9876543210"]`
+2. **`agentNotes`**: Should output a perfectly clean summary summarizing the intelligence, matching the exact format the hackathon reviewers want to read:
+   * *"Scammer claimed to be from SBI fraud department... | Metrics -> Score: 85.00, Risk: HIGH, Duration: XXs, Auto-replies: 2 | Intel Found -> upiIds: scammer.fraud@fakebank; phoneNumbers: +91-9876543210"*
+
+---
+
+## 4. Validating the "Final Output" Schema Requirements
+The Hackathon explicitly grades based on the presence of these exact root-level JSON keys. Review your Postman response layer and ensure it perfectly maps to:
+
+```json
+{
+  "sessionId": "your-session-id",                // Added for hackathon compliance
+  "status": "success",                           // +5 Points
+  "reply": "...",                                
+  "scamDetected": true,                          // +5 Points 
+  "totalMessagesExchanged": 4,                   // Added for metric tracking
+  "extractedIntelligence": {                     // +5 Points Base (+40 max for values)
+    "phoneNumbers": ["+91-9876543210"],
+    "bankAccounts": [],
+    "upiIds": ["scammer.fraud@fakebank"],
+    "phishingLinks": [],
+    "emailAddresses": []
+  },
+  "engagementMetrics": {                         // +2.5 Points
+    "totalMessagesExchanged": 4,
+    "engagementDurationSeconds": 45
+  },
+  "agentNotes": "Rich formatted summary..."      // +2.5 Points
+}
+```
+
+If your tests match the Expected Outputs above, your API is perfectly tuned for the evaluator constraints!
