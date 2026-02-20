@@ -19,6 +19,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === SECURITY & ROBUSTNESS (Hackathon Feedback) ===
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.middleware("http")
+async def secure_headers_and_error_boundary(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        # Add basic strict security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+    except Exception as e:
+        print(f"[ERROR-BOUNDARY] Unhandled Exception: {str(e)}")
+        # Provide a clean, robust JSON error instead of crashing
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": "Internal server error. Sentinel recovery protocol engaged."}
+        )
+
 # Include Router
 app.include_router(api_router, prefix="/api")
 

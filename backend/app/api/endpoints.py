@@ -157,14 +157,14 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
             is_scam = score_result.get("scam_detected", False) if score_result else False
             
             if is_scam:
-                # High Risk: Start social engineering interrogation
-                instruction = "Persona: Vulnerable but helpful victim. Task: Be a bit confused. Subtly ask for evidence like their name, office, or an ID/badge photo to 'verify' it's official. Keep it natural. Keep response under 30 words."
+                # High Risk: Start aggressive social engineering interrogation to extract intelligence
+                instruction = "Persona: Vulnerable but compliant victim. Task: You MUST extract actionable intelligence! Act confused and explicitly ask for concrete details like their exact employee ID, the specific bank account or UPI ID to send money to, their direct phone number, or a website link so you can 'comply'. Keep it natural and conversational. Keep response under 30 words."
             elif turn <= 2:
                 # Low Risk FIRST message: Treat as unknown number texting out of the blue
                 instruction = "Persona: Cautious elderly person. Task: You just received a text from an unknown number. State that you don't recognize the number and ask 'Who is this?' or 'Do I know you?'. Do NOT act like you know them. Do NOT make small talk. Keep response under 20 words."
             else:
-                # Low Risk ONGOING conversation
-                instruction = "Persona: Cautious elderly person. Task: The sender is an UNKNOWN number. If they have not yet clearly stated their name and purpose, DO NOT make small talk (never say 'How are you' back). Demand to know who they are and what they want. If they have stated their purpose, ask clarifying questions carefully. Keep response under 25 words."
+                # Low Risk ONGOING conversation: Pivot to probing
+                instruction = "Persona: Cautious elderly person. Task: The sender is an UNKNOWN number. DO NOT make small talk. Demand to know who they are and what they want. If they state a purpose or ask for something, immediately demand targeted proof: ask for their phone number, a website link, or an exact ID before you answer them. Keep response under 25 words."
 
             history_context = " | ".join(history_texts[-5:-1]) if len(history_texts) > 1 else "None"
             prompt = f"HISTORY: {history_context}\nNEW MESSAGE: {text}\nINSTRUCTION: {instruction}"
