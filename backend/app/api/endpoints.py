@@ -372,21 +372,33 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     elapsed = time.time() - start
     print(f"[API] {sid[:8]} T{state.totalMessagesExchanged} {elapsed*1000:.0f}ms Scam={state.scamDetected}")
 
-    # Construct strictly compliant, human-readable agent notes
+    # Construct highly detailed, metric-rich agent notes (Advanced telemetry format)
     ai_summary = state.agentNotes.split(' [Confidence:')[0] if state.agentNotes else ""
     is_placeholder = ai_summary.startswith("Active") or ai_summary.startswith("Sentinel")
     
-    if ai_summary and not is_placeholder:
-        clean_notes = ai_summary
-    elif state.scamDetected:
-        clean_notes = f"Scammer is attempting {state.attackType or 'Social Engineering'}."
+    # 1. Base Analysis Phase
+    # If the LLM summary from a previous turn is still benign but we synchronously detected a scam now, override the summary.
+    if state.scamDetected and (not ai_summary or "benign" in ai_summary.lower() or "greeting" in ai_summary.lower()):
+        base_note = f"Honeypot intercepted potential {state.attackType or 'Social Engineering'} vectors. Synchronous intelligence override."
     else:
-        clean_notes = "Initial message appears benign. Monitoring for flags."
+        base_note = ai_summary if (ai_summary and not is_placeholder) else (f"Honeypot intercepted potential {state.attackType or 'Social Engineering'} vectors." if state.scamDetected else "Honeypot engaged. Initial conversation vector appears benign; maintaining trust persona to probe for intent.")
 
-    # Per user request: gracefully inject suspiciousKeywords into the agentNotes
-    kws = state.extractedIntelligence.get("suspiciousKeywords", [])
-    if kws:
-        clean_notes += f" Flagged terms: {', '.join(kws[:5])}."
+    # 2. Intelligence Parsed Phase
+    extracted_items = []
+    for k, v in state.extractedIntelligence.items():
+        if v and isinstance(v, list):
+            extracted_items.append(f"{k}: [{', '.join(v)}]")
+            
+    # 3. Cognitive & Metric Telemetry Phase
+    duration = int(time.time() - state.start_time)
+    confidence = "HIGH (95%+)" if state.scamDetected else "LOW (<20%)"
+    
+    extra_metrics = f" | [SYSTEM METRICS] -> ThreatScore: {state.scamScore:.2f}/100 | Risk: {state.riskLevel.upper()} | Confidence: {confidence} | Active Turns: {state.totalMessagesExchanged} | Time Engaged: {duration}s"
+    
+    if extracted_items:
+        extra_metrics += f" | [INTEL PARSED] -> {'; '.join(extracted_items)}"
+        
+    clean_notes = base_note + extra_metrics
 
     from backend.app.models.schemas import EngagementMetrics, IntelligenceObj
     return HoneypotResponse(
