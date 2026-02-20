@@ -139,30 +139,30 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
 
     # === 1. ENTITY REFLECTION (Highest Priority) ===
     if intent["has_entity"]:
-        return assemble("confusion", intent["entity_value"], intent["entity_type"], text_content=payload.message.text)
+        return assemble("confusion", intent["entity_value"], intent["entity_type"], text_content=text)
 
     # === 2. DIGITAL ARREST / THREAT (High Score or Intent) ===
     if attack_type == "Digital Arrest / Impersonation" or intent["threat"] or (intent["urgency"] and "account" in lower):
-        return assemble("fear", text_content=payload.message.text)
+        return assemble("fear", text_content=text)
 
     # === 3. INVESTMENT / REWARD (Greed Scams) ===
     if attack_type == "Temptation / Investment Scam" or intent["reward"]:
-        return assemble("greed", text_content=payload.message.text)
+        return assemble("greed", text_content=text)
 
     # === 4. KYC / VERIFICATION (Identity Theft) ===
     if attack_type == "KYC Fraud" or intent["verification"] or "otp" in lower or "code" in lower:
-        return assemble("confusion", text_content=payload.message.text)
+        return assemble("confusion", text_content=text)
 
     # === 5. FINANCIAL / PAYMENT REQUEST ===
     if attack_type == "Financial Fraud" or intent["payment_request"]:
-        return assemble("urgency", text_content=payload.message.text)
+        return assemble("urgency", text_content=text)
 
     # === 6. GREETINGS (Low context) ===
     if len(lower) < 20 and any(g in lower for g in ["hi", "hello", "hey", "dear"]):
-        return assemble("confusion", text_content=payload.message.text)
+        return assemble("confusion", text_content=text)
 
     # === 7. GENERIC FALLBACK (The "Skeptical but Engaged" Persona) ===
-    p_reply = assemble("generic", text_content=payload.message.text)
+    p_reply = assemble("generic", text_content=text)
     
     # === LLM AUGMENTATION (Wise Usage for Turn 2+) ===
     # Using GPT-4o-mini for sub-2s response times on Turn 2+.

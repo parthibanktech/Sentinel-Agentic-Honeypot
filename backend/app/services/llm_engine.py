@@ -1,7 +1,11 @@
 import asyncio
 import time
 from openai import AsyncOpenAI
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
 from backend.app.core.config import OPENAI_API_KEY, GOOGLE_API_KEY, SHIELD_KEY, is_valid_sk, is_valid_google
 
 # --- CONFIG ---
@@ -10,9 +14,12 @@ _google_key = GOOGLE_API_KEY if is_valid_google(GOOGLE_API_KEY) else None
 
 # Initialize Clients
 _openai_client = AsyncOpenAI(api_key=_openai_key, max_retries=1, timeout=10.0)
-if _google_key:
-    genai.configure(api_key=_google_key)
-    _gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+if _google_key and genai:
+    try:
+        genai.configure(api_key=_google_key)
+        _gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+    except:
+        _gemini_model = None
 else:
     _gemini_model = None
 

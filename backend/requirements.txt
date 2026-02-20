@@ -8,3 +8,4 @@ langchain-core
 httpx
 scikit-learn
 openai
+google-generativeai
