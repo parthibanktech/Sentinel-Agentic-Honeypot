@@ -110,6 +110,11 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
         TEMPLATES = {"drivers": {}, "openers": [], "questions": []}
 
     def assemble(intent_type, entity_val=None, entity_type=None, text_content=""):
+        # Special case for pure greetings
+        if intent_type == "greetings":
+            greetings = TEMPLATES.get("drivers", {}).get("greetings", ["Hello?"])
+            return random.choice(greetings)
+
         # 1. Opener
         openers = TEMPLATES.get("openers", ["Hello?", "Wait,"])
         p1 = random.choice(openers)
@@ -137,49 +142,42 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
         
         return f"{p1} {p2} {p3}"
 
-    # === 1. ENTITY REFLECTION (Highest Priority) ===
+    # === GREETING DETECTION (Immediate Human-Like Response) ===
+    if len(lower) < 15 and any(g in lower for g in ["hi", "hello", "hey", "dear"]):
+        return assemble("greetings", text_content=text)
+
+    # === AI AUGMENTATION (Max Intelligence Layer) ===
+    # If we have a key, let the AI handle the complex reasoning immediately.
+    from backend.app.services.llm_engine import call_llm
+    from backend.app.core.config import OPENAI_API_KEY, GOOGLE_API_KEY, is_valid_sk, is_valid_google
+    
+    if is_valid_sk(OPENAI_API_KEY) or is_valid_google(GOOGLE_API_KEY):
+        try:
+            # Use prompt to generate a realistic follow up that asks for intel
+            prompt = f"Persona: Old vulnerable victim. SCAM TOPIC: {extract_conversation_focus(text)}. SCAMMER MESSAGE: {text}. Context: This is Turn {turn}. Task: Play the persona. Be a bit confused but helpful. Try to ask for evidence (ID, photo, office location). Keep response under 30 words."
+            llm_reply = await call_llm(prompt)
+            if len(llm_reply) > 5: return llm_reply
+        except Exception as e:
+            print(f"[LLM] Error: {e}")
+            pass
+
+    # === COMBINATORIAL FALLBACK (Template Engine) ===
+    # 1. ENTITY REFLECTION
     if intent["has_entity"]:
         return assemble("confusion", intent["entity_value"], intent["entity_type"], text_content=text)
 
-    # === 2. DIGITAL ARREST / THREAT (High Score or Intent) ===
+    # 2. INTENT-BASED
     if attack_type == "Digital Arrest / Impersonation" or intent["threat"] or (intent["urgency"] and "account" in lower):
         return assemble("fear", text_content=text)
-
-    # === 3. INVESTMENT / REWARD (Greed Scams) ===
     if attack_type == "Temptation / Investment Scam" or intent["reward"]:
         return assemble("greed", text_content=text)
-
-    # === 4. KYC / VERIFICATION (Identity Theft) ===
-    if attack_type == "KYC Fraud" or intent["verification"] or "otp" in lower or "code" in lower:
+    if attack_type == "KYC Fraud" or intent["verification"]:
         return assemble("confusion", text_content=text)
-
-    # === 5. FINANCIAL / PAYMENT REQUEST ===
     if attack_type == "Financial Fraud" or intent["payment_request"]:
         return assemble("urgency", text_content=text)
 
-    # === 6. GREETINGS (Low context) ===
-    if len(lower) < 20 and any(g in lower for g in ["hi", "hello", "hey", "dear"]):
-        return assemble("confusion", text_content=text)
-
-    # === 7. GENERIC FALLBACK (The "Skeptical but Engaged" Persona) ===
-    p_reply = assemble("generic", text_content=text)
-    
-    # === LLM AUGMENTATION (Wise Usage for Turn 2+) ===
-    # Using GPT-4o-mini for sub-2s response times on Turn 2+.
-    if turn > 1 and score_result and score_result["scam_detected"]:
-         from backend.app.services.llm_engine import call_llm
-         from backend.app.core.config import OPENAI_API_KEY, is_valid_sk
-         if is_valid_sk(OPENAI_API_KEY):
-             try:
-                 # Use prompt to generate a realistic follow up that asks for intel
-                 prompt = f"Persona: Old vulnerable victim. SCAM TOPIC: {extract_conversation_focus(text)}. SCAMMER MESSAGE: {text}. PREVIOUS DRAFT REPLY: {p_reply}. Task: Modify the draft to be more natural and ask an identifying question (ID, office, name). Keep response under 25 words."
-                 llm_reply = await call_llm(prompt)
-                 if len(llm_reply) > 5: return llm_reply
-             except Exception as e:
-                 print(f"[LLM] Error: {e}")
-                 pass
-
-    return p_reply
+    # 3. GENERIC FALLBACK
+    return assemble("generic", text_content=text)
 
 
 

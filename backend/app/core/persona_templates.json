@@ -42,6 +42,13 @@
             "How does {topic} actually work?",
             "Are you sure about {topic}?",
             "Wait, {topic}? Is that official?"
+        ],
+        "greetings": [
+            "Hello. Yes, I am here.",
+            "Hi. Who is this please?",
+            "Hello? I was just about to have tea.",
+            "Yes, hello. How can I help you?",
+            "Hi there. Is everything okay?"
         ]
     },
     "openers": [
