@@ -1,30 +1,48 @@
-from langchain_openai import ChatOpenAI
+import time
+from openai import AsyncOpenAI
 from backend.app.core.config import OPENAI_API_KEY, SHIELD_KEY, is_valid_sk
 
-# Select LLM - Strictly OpenAI
-default_llm = None
-if is_valid_sk(OPENAI_API_KEY):
-    try:
-        print("Initializing OpenAI (ChatGPT) LLM...")
-        default_llm = ChatOpenAI(model="gpt-4o", openai_api_key=OPENAI_API_KEY, temperature=0.9)
-    except Exception as e:
-        print(f"Error initializing OpenAI: {e}")
-
-# --- ABSOLUTE PROJECT SHIELD (Final Safety Net) ---
-if not default_llm:
-    print("🛡️ ACTIVATING PROJECT SHIELD: Environment keys invalid. Using hardcoded brain.")
-    default_llm = ChatOpenAI(model="gpt-4o-mini", openai_api_key=SHIELD_KEY, temperature=0.7)
-
-def get_llm(auth_key: str = None):
-    """
-    Returns the appropriate LLM instance based on auth key or fallback.
-    """
-    # 1. Try Dynamic Header (Postman key)
+def _get_key(auth_key: str = None) -> str:
     if auth_key and is_valid_sk(auth_key):
-        try: 
-            return ChatOpenAI(model="gpt-4o", openai_api_key=auth_key, temperature=0.7)
-        except: 
-            pass
+        return auth_key
+    if is_valid_sk(OPENAI_API_KEY):
+        return OPENAI_API_KEY
+    return SHIELD_KEY
+
+# Pre-create client at startup with connection pooling
+_default_key = _get_key()
+_client = AsyncOpenAI(api_key=_default_key, max_retries=1, timeout=10.0)
+
+async def call_llm(prompt: str, auth_key: str = None) -> str:
+    """Direct OpenAI call via official SDK. Fastest possible."""
+    key = _get_key(auth_key)
+    t = time.time()
     
-    # 2. Return Default (Master or Shield)
-    return default_llm
+    # Use default client if key matches, else create temporary
+    client = _client if key == _default_key else AsyncOpenAI(api_key=key, max_retries=1, timeout=10.0)
+    
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8,
+        max_tokens=80,
+    )
+    
+    result = response.choices[0].message.content.strip()
+    elapsed = time.time() - t
+    print(f"[LLM] {elapsed:.2f}s | {len(result)} chars")
+    return result
+
+# Warm up: make a preflight request at startup to establish connection
+async def _warmup():
+    try:
+        await _client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=5,
+        )
+        print("[LLM] Warmup complete - connection pool ready")
+    except:
+        print("[LLM] Warmup failed (non-critical)")
+
+print(f"[LLM] OpenAI SDK engine loaded (key: ...{_default_key[-8:]})")

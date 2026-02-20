@@ -1,0 +1,13 @@
+T 1 Greeting     | 2.06s [OK  ] | Hello? Who is this? I don't think I know this number... Is this about 
+T 2 Bank Fraud   | 3.09s [OK  ] | Oh no, my pension account? That's all I have! What's your name and emp
+T 3 Phishing     | 2.87s [OK  ] | Blocked? But I just went to the branch yesterday! Which branch are you
+T 4 UPI          | 2.83s [OK  ] | Please don't block my account! Can you tell me your full name and your
+T 5 OTP          | 2.80s [OK  ] | Let me check my phone... I see some numbers here: 982731. Is that what
+T 6 Job Scam     | 2.89s [OK  ] | That sounds wonderful! My pension barely covers expenses. What company
+T 7 Lottery      | 3.37s [OK  ] | My account? This is very worrying. What's your designation? Can you gi
+T 8 Police       | 3.01s [OK  ] | KYC? I thought I did that last year at the branch. Should I go again? 
+T 9 Follow up    | 2.41s [OK  ] | Oh dear, my savings! Tell me exactly what happened. What's your employ
+T10 Closing      | 2.71s [OK  ] | Are you from the bank? Which branch? My branch is near the market. Wha
+---
+Total: 28.03s | Avg: 2.80s per turn
+FAST(<2s): 0 | OK(<5s): 10 | Total under 5s: 10/10

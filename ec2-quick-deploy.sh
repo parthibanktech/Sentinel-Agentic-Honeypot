@@ -57,31 +57,17 @@ EOF
 
 echo "✅ Environment file created!"
 
-# Step 6: Build Docker image
-echo "🏗️ Building Docker image..."
-docker build -t sentinel-honeypot .
+# Step 6: Build and Run with Docker Compose
+echo "🏗️ Building and Starting with Docker Compose..."
+docker compose up -d --build
 
-# Step 7: Stop and remove old container (if exists)
-echo "🧹 Cleaning up old containers..."
-docker stop sentinel-honeypot 2>/dev/null || true
-docker rm sentinel-honeypot 2>/dev/null || true
-
-# Step 8: Run new container
-echo "🚀 Starting Sentinel Honeypot..."
-docker run -d \
-  --name sentinel-honeypot \
-  -p 80:8000 \
-  --env-file backend/.env \
-  --restart unless-stopped \
-  sentinel-honeypot
-
-# Step 9: Wait for container to start
+# Step 7: Wait for container to start
 echo "⏳ Waiting for container to start..."
 sleep 5
 
-# Step 10: Check status
+# Step 8: Check status
 echo "📊 Container Status:"
-docker ps | grep sentinel-honeypot
+docker compose ps
 
 # Step 11: Show logs
 echo "📝 Recent logs:"

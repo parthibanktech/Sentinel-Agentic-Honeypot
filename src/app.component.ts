@@ -14,6 +14,67 @@ import { v4 as uuidv4 } from 'uuid';
   imports: [CommonModule, FormsModule],
   templateUrl: './app.component.html',
   styleUrls: [],
+  styles: [`
+    :host {
+      display: block;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Custom Scrollbar for "Hacker" feel */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5); 
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.5); 
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.5); 
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-in.fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes slideInFromBottom {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-in.slide-in-from-bottom-2 {
+      animation: slideInFromBottom 0.3s ease-out forwards;
+    }
+    
+    @keyframes slideInFromRight {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .animate-in.slide-in-from-right-10 {
+      animation: slideInFromRight 0.4s ease-out forwards;
+    }
+
+    @keyframes slideInFromTop {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-in.slide-in-from-top-2 {
+      animation: slideInFromTop 0.3s ease-out forwards;
+    }
+
+    @keyframes scan {
+      0% { transform: translateY(-100vh); }
+      100% { transform: translateY(100vh); }
+    }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent implements OnDestroy, AfterViewChecked {
@@ -437,17 +498,25 @@ export class AppComponent implements OnDestroy, AfterViewChecked {
         locale: this.metaLocale()
       };
 
-      // 2. DIRECT CORE: High-Level pure interaction with OpenAI GPT-4o
+      // 2. Use Python Backend API (fast, single LLM call via gpt-4o-mini)
       try {
-        // We now exclusively use the High-Performance Angular Core
-        response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+        response = await this.backendService.analyzeAndEngage(
+          scammerMsg.text,
+          this.messages(),
+          metadata,
+          this.sessionId()
+        );
       } catch (err: any) {
-        console.error('Core Brain Error:', err);
-        this.showNotification('Primary Brain link unstable. Retrying connection...', 'info');
+        console.error('Backend API Error:', err);
+        this.showNotification('Backend connection failed. Using offline mode...', 'info');
 
-        // Final fallback within Angular if API fails
-        const simulated = (this.openaiService as any).executeOfflineSimulation(scammerMsg.text, 'API_ERROR');
-        response = simulated;
+        // Fallback to direct OpenAI if backend is down
+        try {
+          response = await this.openaiService.analyzeAndEngage(scammerMsg.text, this.messages(), metadata);
+        } catch (err2: any) {
+          const simulated = (this.openaiService as any).executeOfflineSimulation(scammerMsg.text, 'API_ERROR');
+          response = simulated;
+        }
       }
 
       // Analysis complete

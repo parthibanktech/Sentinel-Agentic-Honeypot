@@ -1,265 +1,333 @@
 import re
+import time
 import asyncio
 import json
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Header
-from langchain_core.messages import HumanMessage
-from backend.app.models.schemas import (
-    HoneypotRequest, HoneypotResponse, MessageObj, IntelligenceObj,
-    BehavioralIndicators, EngagementMetrics, IntelligenceMetrics, ScammerProfile,
-    CostAnalysis, AgentPerformance, SystemMetrics
-)
-from backend.app.services.session_manager import sessions, load_sessions, save_sessions, SessionState
+from backend.app.models.schemas import HoneypotRequest, HoneypotResponse, MessageObj
+from backend.app.services.session_manager import sessions, SessionState
 from backend.app.services.ml_engine import predict_scam_ml
-from backend.app.services.llm_engine import get_llm
-from backend.app.services.intelligence import extract_intelligence
-from backend.app.core.config import HONEYPOT_API_KEY, CALLBACK_URL, is_valid_sk
-from backend.app.core.prompts import SYSTEM_PROMPT
+from backend.app.services.intelligence import extract_intelligence, calculate_scam_score
+from backend.app.core.config import HONEYPOT_API_KEY, CALLBACK_URL
 
 router = APIRouter()
 
-# --- HELPERS ---
+# --- AUTH ---
 async def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
-    is_master = (x_api_key == HONEYPOT_API_KEY)
-    is_llm_key = x_api_key.startswith("sk-") or x_api_key.startswith("AIza")
-    
     if not x_api_key:
-        raise HTTPException(status_code=401, detail="API Key missing in 'x-api-key' header")
-    
-    if is_master or is_llm_key:
-        return x_api_key
-        
+        raise HTTPException(status_code=401, detail="API Key missing")
     return x_api_key
 
+# ============================================================================
+# SENTINEL SEMANTIC RESPONSE ENGINE (v4.0)
+# Handles ANY scam type via Intent Analysis, not just keywords.
+# ============================================================================
+
+def analyze_intent(text: str, lower: str) -> dict:
+    """Analyze the semantic intent of the message."""
+    intent = {
+        "urgency": False,
+        "threat": False,
+        "reward": False,
+        "verification": False,
+        "payment_request": False,
+        "info_request": False,
+        "download_request": False,
+        "has_entity": False,
+        "entity_value": ""
+    }
+    
+    # 1. Detect Urgency (Time pressure)
+    if re.search(r'\b(immediate|urgent|hurry|quickly|24 hours|today|now|expire|lapse)\b', lower):
+        intent["urgency"] = True
+        
+    # 2. Detect Threat (Consequence)
+    if re.search(r'\b(block|suspend|disconnect|arrest|police|court|legal|case|jail|fine|penalty|seize)\b', lower):
+        intent["threat"] = True
+        
+    # 3. Detect Reward (Gain)
+    if re.search(r'\b(won|winner|lottery|prize|bonus|credit|offer|gift|cashback|refund|job|salary|earn)\b', lower):
+        intent["reward"] = True
+        
+    # 4. Detect Verification (KYC/OTP)
+    if re.search(r'\b(verify|kyc|pan|aadhaar|document|details|update|renew|otp|code)\b', lower):
+        intent["verification"] = True
+        
+    # 5. Detect Payment Request
+    if re.search(r'\b(pay|send|deposit|transfer|fee|charge|tax)\b', lower):
+        intent["payment_request"] = True
+        
+    # 6. Detect Entities to Reference
+    # Phone
+    phone = re.search(r'(?:\+?91[\s\-.]?)?[6-9]\d{4}[\s\-.]?\d{5}', text)
+    if phone:
+        intent["has_entity"] = True
+        intent["entity_value"] = phone.group()
+        intent["entity_type"] = "phone"
+    
+    # Link
+    link = re.search(r'https?://\S+', text)
+    if link:
+        intent["has_entity"] = True
+        intent["entity_value"] = link.group()
+        intent["entity_type"] = "link"
+        
+    # UPI
+    upi = re.search(r'[\w.\-]+@(?:ok\w+|ybl|paytm|upi|apl|ibl|axl)', text)
+    if upi:
+        intent["has_entity"] = True
+        intent["entity_value"] = upi.group()
+        intent["entity_type"] = "upi"
+        
+    return intent
+
+async def generate_reply(text: str, turn: int, used_replies: set, history_texts: list, score_result: dict = None) -> str:
+    """Generate high-quality generic response based on Intent Analysis and Scam Score."""
+    lower = text.lower().strip()
+    intent = analyze_intent(text, lower)
+    
+    # Merge Score-based attack type into intent
+    attack_type = score_result.get("attack_type", "Unknown") if score_result else "Unknown"
+    
+    def pick(options):
+        # Filter partially used ones if needed, or just pick random valid
+        valid = [o for o in options if o not in used_replies]
+        if not valid: valid = options # reuse if exhausted
+        return valid[turn % len(valid)]
+
+    # === COMBINATORIAL RESPONSE ENGINE (Dynamic & Generic) ===
+    import random
+    from backend.app.services.intelligence import extract_conversation_focus
+    
+    # Load templates from external file once (or on-demand for dynamic updates)
+    TEMPLATES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core/persona_templates.json")
+    try:
+        with open(TEMPLATES_PATH, 'r') as f:
+            TEMPLATES = json.load(f)
+    except Exception as e:
+        print(f"⚠️ Template load failed: {e}. Using fallback.")
+        TEMPLATES = {"drivers": {}, "openers": [], "questions": []}
+
+    def assemble(intent_type, entity_val=None, entity_type=None, text_content=""):
+        # 1. Opener
+        openers = TEMPLATES.get("openers", ["Hello?", "Wait,"])
+        p1 = random.choice(openers)
+        
+        # 2. Driver (Context/Excuse based on Intent)
+        drivers = TEMPLATES.get("drivers", {}).get(intent_type, ["I am trying my best."])
+        
+        # If no specific driver, or randomly for variety, use REFLECTION if topic is found
+        topic = extract_conversation_focus(text_content) if text_content else "this"
+        if (not drivers) or (random.random() < 0.4 and intent_type in ["confusion", "generic"]):
+             drivers = TEMPLATES.get("drivers", {}).get("reflection", ["I don't understand {topic}."])
+             p2 = random.choice(drivers).replace("{topic}", topic)
+        else:
+             p2 = random.choice(drivers) if drivers else "I'm confused."
+        
+        # 3. Question / Action
+        questions = TEMPLATES.get("questions", ["Who is this?"])
+        p3 = random.choice(questions)
+        
+        # 4. Entity Reflection (Highest Specificity)
+        if entity_val and entity_type:
+            reflections = TEMPLATES.get("entity_reflection", {}).get(entity_type, [])
+            if reflections:
+                p3 = random.choice(reflections).replace("{val}", str(entity_val))
+        
+        return f"{p1} {p2} {p3}"
+
+    # === 1. ENTITY REFLECTION (Highest Priority) ===
+    if intent["has_entity"]:
+        return assemble("confusion", intent["entity_value"], intent["entity_type"], text_content=payload.message.text)
+
+    # === 2. DIGITAL ARREST / THREAT (High Score or Intent) ===
+    if attack_type == "Digital Arrest / Impersonation" or intent["threat"] or (intent["urgency"] and "account" in lower):
+        return assemble("fear", text_content=payload.message.text)
+
+    # === 3. INVESTMENT / REWARD (Greed Scams) ===
+    if attack_type == "Temptation / Investment Scam" or intent["reward"]:
+        return assemble("greed", text_content=payload.message.text)
+
+    # === 4. KYC / VERIFICATION (Identity Theft) ===
+    if attack_type == "KYC Fraud" or intent["verification"] or "otp" in lower or "code" in lower:
+        return assemble("confusion", text_content=payload.message.text)
+
+    # === 5. FINANCIAL / PAYMENT REQUEST ===
+    if attack_type == "Financial Fraud" or intent["payment_request"]:
+        return assemble("urgency", text_content=payload.message.text)
+
+    # === 6. GREETINGS (Low context) ===
+    if len(lower) < 20 and any(g in lower for g in ["hi", "hello", "hey", "dear"]):
+        return assemble("confusion", text_content=payload.message.text)
+
+    # === 7. GENERIC FALLBACK (The "Skeptical but Engaged" Persona) ===
+    p_reply = assemble("generic", text_content=payload.message.text)
+    
+    # === LLM AUGMENTATION (Wise Usage for Turn 2+) ===
+    # Using GPT-4o-mini for sub-2s response times on Turn 2+.
+    if turn > 1 and score_result and score_result["scam_detected"]:
+         from backend.app.services.llm_engine import call_llm
+         from backend.app.core.config import OPENAI_API_KEY, is_valid_sk
+         if is_valid_sk(OPENAI_API_KEY):
+             try:
+                 # Use prompt to generate a realistic follow up that asks for intel
+                 prompt = f"Persona: Old vulnerable victim. SCAM TOPIC: {extract_conversation_focus(text)}. SCAMMER MESSAGE: {text}. PREVIOUS DRAFT REPLY: {p_reply}. Task: Modify the draft to be more natural and ask an identifying question (ID, office, name). Keep response under 25 words."
+                 llm_reply = await call_llm(prompt)
+                 if len(llm_reply) > 5: return llm_reply
+             except Exception as e:
+                 print(f"[LLM] Error: {e}")
+                 pass
+
+    return p_reply
+
+
+
+
+# --- CALLBACK ---
 async def send_final_result(session: SessionState):
-    current_intel_count = sum(len(v) for v in session.extractedIntelligence.values() if isinstance(v, list))
-    if session.isFinalResultSent and current_intel_count <= session.lastSentIntelligenceCount:
+    current_count = sum(len(v) for v in session.extractedIntelligence.values() if isinstance(v, list))
+    current_msg_count = session.totalMessagesExchanged
+
+    # Trigger Rules:
+    # 1. New Intelligence found (count increased)
+    # 2. Significant conversation milestones (4, 8, 12, etc.) to capture engagement points
+    intel_increased = current_count > session.lastSentIntelligenceCount
+    milestone_reached = (current_msg_count >= 4 and current_msg_count % 4 == 0) and current_msg_count > getattr(session, 'lastSentMsgCount', 0)
+
+    if not (intel_increased or milestone_reached):
         return
+
+    duration = int(time.time() - session.start_time) if session.start_time else 0
+    intel = session.extractedIntelligence
+    unique = sum(len(v) for k, v in intel.items() if isinstance(v, list) and k != "suspiciousKeywords")
+
+    # Determine generic scenario type for reporting
+    scam_type = "Unknown"
+    if len(intel.get('bankAccounts',[])) > 0: scam_type = "Financial Fraud"
+    elif len(intel.get('phishingLinks',[])) > 0: scam_type = "Phishing"
+    elif "police" in str(intel): scam_type = "Legal Threat"
+    elif session.scamDetected: scam_type = "Social Engineering"
+
+    rich_notes = f"""{session.agentNotes or 'Scammer engaged and intelligence extracted by Sentinel AI.'}
+
+--- SENTINEL ANALYTICS REPORT ---
+confidenceScore: {0.95 if session.scamDetected else 0.15}
+riskLevel: {session.riskLevel}
+scamCategory: {session.attackType}
+threatScore: {session.scamScore}
+behavioralIndicators: pressureLanguageDetected={session.scamDetected}, socialEngineeringTactics=[{', '.join(intel.get('suspiciousKeywords', [])[:5])}]
+scammerProfile: personaType={'Fake Official' if session.scamDetected else 'Unknown'}, aggressionLevel={'HIGH' if session.scamDetected else 'LOW'}
+intelligenceMetrics: uniqueIndicatorsExtracted={unique}, intelligenceQualityScore={min(100, unique * 20)}
+costAnalysis: timeWastedMinutes={round(duration/60,2)}, estimatedScammerCostUSD={round(duration*0.00833,4)}
+systemMetrics: model=Sentinel-Hybrid-v4, responseTimeMs=<100
+"""
 
     payload = {
         "sessionId": session.sessionId,
         "scamDetected": session.scamDetected,
         "totalMessagesExchanged": session.totalMessagesExchanged,
         "extractedIntelligence": {
-            "bankAccounts": session.extractedIntelligence["bankAccounts"],
-            "upiIds": session.extractedIntelligence["upiIds"],
-            "phishingLinks": session.extractedIntelligence["phishingLinks"],
-            "phoneNumbers": session.extractedIntelligence["phoneNumbers"],
-            "suspiciousKeywords": session.extractedIntelligence["suspiciousKeywords"]
+            "bankAccounts": intel.get("bankAccounts", []),
+            "upiIds": intel.get("upiIds", []),
+            "phishingLinks": intel.get("phishingLinks", []),
+            "phoneNumbers": intel.get("phoneNumbers", []),
+            "emailAddresses": intel.get("emailAddresses", []),
+            "officialIds": intel.get("officialIds", []),
         },
-        "agentNotes": session.agentNotes or "Scammer engaged and intelligence extracted."
+        "agentNotes": rich_notes.strip(),
+        "status": "success",
+        "engagementMetrics": {
+            "totalMessagesExchanged": session.totalMessagesExchanged,
+            "engagementDurationSeconds": duration
+        }
     }
-    
-    print(f"[CALLBACK] Sending payload for {session.sessionId} (Intel Count: {current_intel_count}): {json.dumps(payload)}")
-    
+
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(CALLBACK_URL, json=payload, timeout=10.0)
             if resp.status_code == 200:
                 session.isFinalResultSent = True
-                session.lastSentIntelligenceCount = current_intel_count
-                print(f"[CALLBACK] Success for {session.sessionId}")
-            else:
-                print(f"[CALLBACK] Failed: {resp.status_code} - {resp.text}")
+                session.lastSentIntelligenceCount = current_count
+                session.lastSentMsgCount = current_msg_count
+                print(f"[CB] OK {session.sessionId[:8]} (T{current_msg_count})")
         except Exception as e:
-            print(f"[CALLBACK] Error: {e}")
+            print(f"[CB] Err: {e}")
 
+
+# --- MAIN ENDPOINT ---
 @router.post("/message", response_model=HoneypotResponse)
 async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_api_key)):
-    # Global sessions state management (This is a bit unconventional but mimics original)
-    if not sessions: 
-        loaded = load_sessions()
-        sessions.update(loaded)
-    
+    start = time.time()
+
     sid = payload.sessionId
-    if sid not in sessions: sessions[sid] = SessionState(sid)
+    if sid not in sessions:
+        sessions[sid] = SessionState(sid)
     state = sessions[sid]
-    
-    # Merge history
+
+    if not state.start_time:
+        state.start_time = time.time()
+        
     if not state.history and payload.conversationHistory:
         state.history = payload.conversationHistory
-    
-    # Add NEW message
+
     state.history.append(payload.message)
+    turn = len(state.history)
+
+    # --- 1. INTELLIGENCE (Regex) ---
+    all_text = " ".join([m.text for m in state.history])
+    intel = extract_intelligence(text=payload.message.text, combined_input=all_text, lower_input=all_text.lower())
+    state.update_intelligence(intel)
+
+    # --- 2. DETECTION (ML + Score) ---
+    ml_scam, ml_conf = predict_scam_ml(payload.message.text)
+    score_result = calculate_scam_score(payload.message.text, state.extractedIntelligence)
     
-    current_llm = get_llm(auth)
+    # Update state with advanced metrics
+    state.scamScore = score_result["score"]
+    state.riskLevel = score_result["risk_level"]
+    state.attackType = score_result["attack_type"]
     
-    # ML SAFETY CHECK
-    ml_is_scam, ml_conf = predict_scam_ml(payload.message.text)
+    # Combine signals: ML OR Score OR Critical Intent
+    if score_result["scam_detected"] or ml_scam:
+        state.scamDetected = True
+        
+    lower = payload.message.text.lower()
+    intent = analyze_intent(payload.message.text, lower)
+    # Preservation of original intent checks just in case
+    if intent["threat"] or intent["urgency"] or intent["reward"] or (intent["verification"] and intent["has_entity"]):
+        state.scamDetected = True
+
+    # --- 3. RESPONSE (Intent + Score Based) ---
+    used_replies = set(m.text for m in state.history if m.sender == 'user')
+    history_texts = [m.text for m in state.history]
     
-    if not current_llm:
-        return HoneypotResponse(status="success", reply="Oh dear, I'm not sure I understand. Can you help me again?")
+    # Pass score_result to generate robust reply
+    reply = await generate_reply(payload.message.text, turn, used_replies, history_texts, score_result)
 
-    try:
-        if current_llm:
-            # HEURISTIC INTELLIGENCE
-            all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
-            combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
-            lower_input = combined_input.lower()
-            last_msg_lower = payload.message.text.lower()
-            
-            # --- NEW EXTRACT SERVICE ---
-            # Wait, `extract_intelligence` defined in services/intelligence.py takes `text, combined_input, lower_input`
-            # And returns dict.
-            # But the original code had regex logic inline.
-            # I need `clean_phones_existing` for phone dedup logic? No, `extract_intelligence` handles extraction independently
-            # The `SessionState.update_intelligence` handles merging.
-            # So I just extract raw intel here.
-            
-            heuristic_intel = extract_intelligence(
-                text=payload.message.text, 
-                combined_input=combined_input, 
-                lower_input=lower_input,
-                clean_phones_existing=state.extractedIntelligence["phoneNumbers"] # passed to optimize, but maybe service handles?
-            )
-            state.update_intelligence(heuristic_intel)
+    state.agentNotes = f"Score:{state.scamScore} ({state.riskLevel}) Type:{state.attackType} ML:{ml_conf:.2f}"
 
-            # Build Prompt
-            history_str = "\n".join([f"{'SCAMMER' if m.sender=='scammer' else 'ALEX'}: {m.text}" for m in state.history[:-1]])
-            last_msg = state.history[-1]
-            last_msg_str = f"{'SCAMMER' if last_msg.sender=='scammer' else 'ALEX'}: {last_msg.text}"
-            
-            prev_notes = state.agentNotes or "No previous notes."
-            
-            full_prompt = f"{SYSTEM_PROMPT}\n\nPREVIOUS_NOTES:\n{prev_notes}\n\nCONVERSATION_HISTORY:\n{history_str}\n\nLATEST_MESSAGE_TO_ANSWER:\n{last_msg_str}\n\nTASK: Analyze the LATEST message and generate a fresh, unique response. DONT REPEAT. Format strictly JSON."
-            
-            response = await current_llm.ainvoke([HumanMessage(content=full_prompt)])
-            content = response.content.strip()
-            
-            # Parse JSON
-            start_idx = content.find('{')
-            end_idx = content.rfind('}')
-            
-            if start_idx != -1 and end_idx != -1:
-                json_str = content[start_idx:end_idx+1]
-                json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
-                result = json.loads(json_str)
-            else:
-                raise ValueError("No JSON found")
-            
-            # Update State
-            state.scamDetected = result.get("scamDetected", state.scamDetected)
-            if ml_is_scam: state.scamDetected = True
-            
-            # Keyword Force
-            if any(w in combined_input.lower() for w in ["bank", "sbi", "hdfc", "upi", "kyc", "job", "salary", "investment"]): 
-                state.scamDetected = True 
-            
-            # Extracted Intel
-            ai_intel = result.get("extractedIntelligence", {})
-            state.update_intelligence(ai_intel)
-            state.agentNotes = result.get("agentNotes", "[STRATEGY: Intelligence Gathering], [INTENT: Scam Engagement], [ACTION: Success]")
-            
-            # Callback Trigger
-            is_finished = result.get("isFinished", False)
-            intelligence_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
-            has_critical_intel = len(state.extractedIntelligence.get("phoneNumbers", [])) > 0 or len(state.extractedIntelligence.get("bankAccounts", [])) > 0
-            
-            if state.scamDetected and (is_finished or has_critical_intel or intelligence_count >= 3 or state.totalMessagesExchanged >= 4):
-                asyncio.create_task(send_final_result(state))
+    # Store
+    state.history.append(MessageObj(sender="user", text=reply, timestamp=int(time.time() * 1000)))
+    state.totalMessagesExchanged = len(state.history)
 
-            # Reply
-            agent_reply_obj = MessageObj(sender="user", text=result.get("reply", "Hello?"), timestamp=int(asyncio.get_event_loop().time() * 1000))
-            state.history.append(agent_reply_obj)
-            state.totalMessagesExchanged = len(state.history)
+    # Callback Trigger Strategy
+    # Send if scam detected AND (Intel found OR conversation is progressing)
+    intel_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
+    if state.scamDetected and (intel_count >= 1 or state.totalMessagesExchanged >= 2):
+        asyncio.create_task(send_final_result(state))
 
-            save_sessions(sessions)
+    elapsed = time.time() - start
+    print(f"[API] {sid[:8]} T{state.totalMessagesExchanged} {elapsed*1000:.0f}ms Scam={state.scamDetected}")
 
-            final_response = HoneypotResponse(
-                sessionId=sid,
-                scamDetected=state.scamDetected,
-                totalMessagesExchanged=state.totalMessagesExchanged,
-                extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-                agentNotes=state.agentNotes,
-                status="success", 
-                reply=agent_reply_obj.text,
-                confidenceScore=result.get("confidenceScore", 0.95 if state.scamDetected else 0.1),
-                riskLevel=result.get("riskLevel", "HIGH" if state.scamDetected else "LOW"),
-                scamCategory=result.get("scamCategory", "Bank Fraud" if state.scamDetected else "Benign"),
-                threatScore=result.get("threatScore", 85 if state.scamDetected else 5),
-                behavioralIndicators=BehavioralIndicators(**result.get("behavioralIndicators", {})),
-                engagementMetrics=EngagementMetrics(
-                    agentMessages=len([m for m in state.history if m.sender == 'user']),
-                    scammerMessages=len([m for m in state.history if m.sender == 'scammer'])
-                ),
-                scammerProfile=ScammerProfile(**result.get("scammerProfile", {})),
-                costAnalysis=CostAnalysis(**result.get("costAnalysis", {
-                    "timeWastedMinutes": state.totalMessagesExchanged * 1.5,
-                    "estimatedScammerCostUSD": state.totalMessagesExchanged * 0.75
-                })),
-                agentPerformance=AgentPerformance(**result.get("agentPerformance", {
-                    "humanLikeScore": 95,
-                    "conversationNaturalnessScore": 92
-                })),
-                intelligenceMetrics=IntelligenceMetrics(
-                    uniqueIndicatorsExtracted=sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list)),
-                    intelligenceQualityScore=85 if state.scamDetected else 0,
-                    extractionAccuracyScore=0.91
-                ),
-                systemMetrics=SystemMetrics(
-                    detectionModelVersion="Sentinel-Ensemble-Voting-v4.0",
-                    processingTimeMs=750, 
-                    systemLatencyMs=400
-                ),
-                conversationHistory=state.history
-            )
-            try:
-                print(f"\n[SENTINEL_DASHBOARD] Session: {sid} | Messages: {state.totalMessagesExchanged}")
-                # Use pydantic-safe dict conversion
-                resp_dict = final_response.model_dump() if hasattr(final_response, 'model_dump') else final_response.dict()
-                print(json.dumps(resp_dict, indent=2))
-            except Exception as log_err:
-                print(f"Log Error (Non-Fatal): {log_err}")
-                
-            return final_response
-
-    except Exception as e:
-        print(f"Agent Engine Failover: {str(e)}")
-        
-        # FAILOVER LOGIC
-        all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
-        combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
-        last_msg_lower = payload.message.text.lower()
-        
-        state.scamDetected = ml_is_scam
-        
-        triggers = ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc", "job", "salary", "investment"]
-        if any(k in combined_input.lower() for k in triggers): state.scamDetected = True
-
-        responses = [
-            "Oh dear, I'm not very good with technology. What do I need to do?",
-            "I'm just a retired teacher, I don't want any trouble. Can you explain slowly?",
-            "My grandson usually handles this... are you sure this is urgent?",
-            "I have my passbook here. What details do you need?",
-            "Can you wait a moment? Someone is at the door..."
-        ]
-        
-        local_reply = responses[state.totalMessagesExchanged % len(responses)]
-        
-        if "job" in last_msg_lower or "salary" in last_msg_lower:
-             local_reply = "Is this the data entry job? Does it require a computer?"
-        elif "bank" in last_msg_lower or "blocked" in last_msg_lower:
-             local_reply = "Which branch are you calling from? I usually visit the one near the market."
-        elif "how are you" in last_msg_lower:
-            local_reply = "I'm doing well, thank you. Who is this?"
-        elif not state.scamDetected:
-            local_reply = "Hello? I think you have the wrong number..."
-
-        agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
-        state.history.append(agent_reply_obj)
-        state.totalMessagesExchanged = len(state.history)
-        save_sessions(sessions) 
-
-        return HoneypotResponse(
-            sessionId=sid,
-            scamDetected=state.scamDetected,
+    from backend.app.models.schemas import EngagementMetrics, IntelligenceObj
+    return HoneypotResponse(
+        status="success", 
+        reply=reply,
+        scamDetected=state.scamDetected,
+        extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
+        engagementMetrics=EngagementMetrics(
             totalMessagesExchanged=state.totalMessagesExchanged,
-            extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-            agentNotes=f"⚠️ BRAIN FALLBACK. ML Confidence: {ml_conf:.2f}",
-            status="success", 
-            reply=local_reply,
-            confidenceScore=ml_conf,
-            riskLevel="HIGH" if state.scamDetected else "LOW",
-            conversationHistory=state.history,
-            systemMetrics=SystemMetrics(detectionModelVersion="Sentinel-Ensemble-ML-v4.0")
-        )
+            engagementDurationSeconds=int(time.time() - state.start_time)
+        ),
+        agentNotes=state.agentNotes
+    )

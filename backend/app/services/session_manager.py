@@ -1,8 +1,6 @@
-import os
-import json
 import re
-from typing import Dict, List, Any
-from backend.app.models.schemas import MessageObj, IntelligenceObj
+from typing import Dict, List
+from backend.app.models.schemas import MessageObj
 
 class SessionState:
     def __init__(self, sessionId: str):
@@ -14,12 +12,19 @@ class SessionState:
             "upiIds": [],
             "phishingLinks": [],
             "phoneNumbers": [],
+            "emailAddresses": [],
+            "officialIds": [],
             "suspiciousKeywords": []
         }
         self.agentNotes = ""
+        self.scamScore = 0
+        self.riskLevel = "LOW"
+        self.attackType = "Unknown"
         self.isFinalResultSent = False
         self.lastSentIntelligenceCount = 0
+        self.lastSentMsgCount = 0
         self.history: List[MessageObj] = []
+        self.start_time: float = 0  # For engagement duration
 
     def update_intelligence(self, new_intel: Dict[str, List[str]]):
         def get_phone_fingerprint(p):
@@ -34,14 +39,12 @@ class SessionState:
                     clean_item = str(item).strip().rstrip('.,?!')
                     
                     if key == "phoneNumbers":
-                        # Ensure it's not a substring of an account
                         fp = get_phone_fingerprint(clean_item)
                         if fp and not any(get_phone_fingerprint(ex) == fp for ex in existing_items):
                             existing_items.append(clean_item)
                         continue
                     
                     if key == "bankAccounts":
-                        # Return ONLY the digits for the bankAccounts list to ensure evaluator compatibility
                         item_digits = re.sub(r'\D', '', clean_item)
                         if item_digits and len(item_digits) >= 10:
                             if item_digits not in existing_items:
@@ -52,42 +55,5 @@ class SessionState:
                     if clean_item.lower() not in low_matches:
                         existing_items.append(clean_item)
 
-# --- SESSION STORAGE (In-Memory) ---
+# --- SESSION STORAGE (In-Memory Only - No Disk I/O) ---
 sessions: Dict[str, SessionState] = {}
-
-# --- PERSISTENCE LAYER ---
-SESSIONS_FILE = "sessions.json"
-
-def load_sessions():
-    if not os.path.exists(SESSIONS_FILE): return {}
-    try:
-        with open(SESSIONS_FILE, "r") as f:
-            data = json.load(f)
-            loaded = {}
-            for sid, sdata in data.items():
-                s = SessionState(sid)
-                s.scamDetected = sdata.get("scamDetected", False)
-                s.totalMessagesExchanged = sdata.get("totalMessagesExchanged", 0)
-                s.extractedIntelligence = sdata.get("extractedIntelligence", {})
-                s.agentNotes = sdata.get("agentNotes", "")
-                s.isFinalResultSent = sdata.get("isFinalResultSent", False)
-                s.history = [MessageObj(**m) for m in sdata.get("history", [])]
-                loaded[sid] = s
-            return loaded
-    except: return {}
-
-def save_sessions(sessions_dict):
-    try:
-        data = {}
-        for sid, s in sessions_dict.items():
-            data[sid] = {
-                "scamDetected": s.scamDetected,
-                "totalMessagesExchanged": s.totalMessagesExchanged,
-                "extractedIntelligence": s.extractedIntelligence,
-                "agentNotes": s.agentNotes,
-                "isFinalResultSent": s.isFinalResultSent,
-                "history": [m.dict() for m in s.history]
-            }
-        with open(SESSIONS_FILE, "w") as f:
-            json.dump(data, f)
-    except Exception as e: print(f"Save error: {e}")

@@ -1,0 +1,92 @@
+{
+    "drivers": {
+        "confusion": [
+            "I'm not very comfortable with new technology.",
+            "My hearing isn't what it used to be.",
+            "I need to find my reading glasses first.",
+            "This line is very crackly, can you repeat?",
+            "I'm writing this down, please speak slowly.",
+            "I don't understand these technical words.",
+            "My grandson usually helps me with this.",
+            "I just woke up, I am a bit groggy."
+        ],
+        "fear": [
+            "You are making me very nervous.",
+            "I have never been in trouble with the police.",
+            "My hands are shaking right now.",
+            "Please, I don't want to go to jail.",
+            "I live alone, this is very scary.",
+            "I am an honest citizen, why is this happening?",
+            "Please don't arrest me."
+        ],
+        "greed": [
+            "Is this really true? I never win anything.",
+            "My pension is very small, this would help.",
+            "That sounds like a lot of money.",
+            "I have heard of fake lottery, is this real?",
+            "I could use this to pay my medical bills."
+        ],
+        "urgency": [
+            "Why is there such a hurry?",
+            "I cannot do this so quickly.",
+            "Please give me some time to think.",
+            "Do I have to do this right now?",
+            "I am moving as fast as I can."
+        ],
+        "reflection": [
+            "You mentioned {topic}, but I don't understand what that means.",
+            "Why is {topic} so urgent?",
+            "My grandson told me to be careful about {topic}.",
+            "Is {topic} really necessary?",
+            "I have never heard of {topic} before.",
+            "How does {topic} actually work?",
+            "Are you sure about {topic}?",
+            "Wait, {topic}? Is that official?"
+        ]
+    },
+    "openers": [
+        "Wait,",
+        "Hold on,",
+        "Just a minute,",
+        "Oh dear,",
+        "Okay,",
+        "I see,",
+        "Hmm,",
+        "Excuse me,",
+        "Sorry,"
+    ],
+    "questions": [
+        "Who am I speaking to again?",
+        "What is your full name?",
+        "Can you explain that one more time?",
+        "Do you have a supervisor I can talk to?",
+        "What is the next step exactly?",
+        "Where is your office located?",
+        "Is there a reference number?",
+        "How do I know this is official?"
+    ],
+    "closers": [
+        "Please guide me.",
+        "I am waiting.",
+        "Tell me what to do.",
+        "I am listening.",
+        "Please help me."
+    ],
+    "entity_reflection": {
+        "upi": [
+            "So I send money to {val}?",
+            "Is {val} a company account?",
+            "Wait, {val}? Is that correct?"
+        ],
+        "phone": [
+            "Should I call {val}?",
+            "Is {val} your direct number?",
+            "I will write down {val}."
+        ],
+        "link": [
+            "I am afraid to click {val}.",
+            "Can you spell out the website {val}?",
+            "Nothing happened when I clicked {val}."
+        ]
+    }
+}
