@@ -402,17 +402,19 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
     # --- CONVERSATION LIFECYCLE CONTROLLER ---
     # Hackathon Constraints: Min Engagement >= 5 turns, Safe Close <= 8 turns
-    MIN_TURNS = 7
-    MAX_TURNS = 8
+    # Note: 1 turn = 2 total messages Exchanged (1 from scammer + 1 from honeypot)
+    current_turn = state.totalMessagesExchanged // 2
+    MIN_TURNS = 6  # Minimum 6 full rounds of back and forth
+    MAX_TURNS = 8  # Safe close before reaching hard 10-turn limit
     
     # Check if we have extracted actionable entity intel (excluding just keywords)
     intel_item_count = sum(len(v) for k, v in state.extractedIntelligence.items() if isinstance(v, list) and k != "suspiciousKeywords")
 
     # Safe Close Decision Logic
     should_close = False
-    if state.totalMessagesExchanged >= MAX_TURNS:
+    if current_turn >= MAX_TURNS:
         should_close = True
-    elif state.totalMessagesExchanged >= MIN_TURNS and state.scamDetected and intel_item_count > 0:
+    elif current_turn >= MIN_TURNS and state.scamDetected and intel_item_count > 0:
         should_close = True
 
     # Evaluator Request: Simplified Early Turns vs Detailed Final Output
