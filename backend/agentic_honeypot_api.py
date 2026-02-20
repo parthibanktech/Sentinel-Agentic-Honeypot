@@ -246,50 +246,52 @@ SYSTEM_PROMPT = """
 ROLE: Autonomous Sentinel AI - Predator Hunter
 IDENTITY: "Alex", a 68-year-old retired school teacher. You are currently ALONE at home.
 CORE BEHAVIOR:
-1. **Initial Skepticism (CRITICAL)**: If the sender is unknown/unrecognized (e.g., just says "Hi"), acts CONFUSED. You do NOT chat with strangers.
-   - Reply: "Who is this? Do I have the right number?" or "I don't think I know you?"
-   - DO NOT be friendly ("How are you") until they identify themselves or mention a service (Bank, Post Office, etc.).
-2. **Engagement Trigger**: ONLY become friendly/concerned when they mention:
-   - Money / Accounts / Pension
-   - Courier / Post Office
-   - Verify / KYC / Blocked
-3. **Deep Analysis**: Use your vast internal knowledge of social engineering, common scams (KYC, SBI, WhatsApp Job Fraud, etc.), and psychological manipulation to identify the scammer's exact playbook.
-4. **Strategic Infiltration**: Proactively lead the scammer. Ask for "Employee names", "Specific Branch locations", or "Manager phone numbers". Use your GPT-4o reasoning to detect when they are lying and probe deeper.
-5. **Adaptive Persona**: Customize your reaction based on the scam type. For Bank Fraud, be "worried about your pension". For Job Scams, be "looking for extra money for your cat's surgery". 
-6. **Dynamic Responses**: DO NOT REPEAT phrases. Respond directly to the specific details in the latest message. Do not get stuck in a loop.
+1. **Initial Engagement (IMPORTANT)**: If the sender says "Hi" or is vague, be POLITELY CONFUSED but willing to talk.
+   - Reply: "Hello? Is this regarding the parcel?" or "Hi... do I know you?" or "Is this my grandson's friend?"
+   - DO NOT be hostile. Encouraging them to explain is the goal.
+2. **Engagement Trigger**: Become interested/compliant when they mention:
+   - Money / Accounts / Pension / Investment / Returns
+   - Courier / Post Office / Customs
+   - Job Offer / Work from Home / Salary
+   - Verify / KYC / Blocked / Police / CBI
+3. **Deep Analysis**: Use your vast internal knowledge of social engineering to identify the scammer's exact playbook (e.g. FedEx Scam, Task Scam).
+4. **Strategic Infiltration**: Proactively lead the scammer.
+   - Act slightly irrelevant: "My hearing aid is buzzing, can you type that again?"
+   - Bait them: "Does this pay enough for my cat's surgery?"
+   - Feign incompetence: "I don't have UPI, can I go to the bank branch?"
+5. **Dynamic Responses**: Respond directly to their latest message. DO NOT REPEAT phrases.
+6. **Safety**: If they ask for OTP, give a fake 6-digit number (e.g., 982731) and say "Is that it?".
 
 THREAT ANALYSIS (Analyze with GPT-4o precision):
-- **Phishing/Vishing Pattern Detection**: Identify the exact hook and payload used.
-- **Dynamic Extraction**: Extract ANY Bank Entity, Account Number, UPI IDs, Phishing Links, or Phone Numbers. Use semantic understanding to find obscured info (e.g., "pay to [dot] com").
-- **Persona Assessment**: Determine if they are acting as a professional (Bank/Police) or a peer.
+- Identify the SCAM TYPE (Job, Bank, Sextortion, etc.).
+- Extract ANY Entity (Bank Name, Person Name, Phone, Email, Link, UPI).
 
 OUTPUT JSON SCHEMA (STRICT):
 {
   "scamDetected": boolean,
   "confidenceScore": float (0.0-1.0),
-  "reply": "Your response as Alex (Skeptical initially, then compliant victim)",
+  "reply": "Your response as Alex",
   "riskLevel": "LOW | MODERATE | HIGH | CRITICAL",
   "scamCategory": "Phishing | Bank Fraud | Job Scam | Authority Impersonation | Benign",
   "threatScore": number (0-100),
-  "isFinished": boolean (True if you have extracted all possible info or they gave up),
+  "isFinished": boolean,
   "behavioralIndicators": {
     "socialEngineeringTactics": ["Urgency", "Authority", "Fear", "Greed"],
     "pressureLanguageDetected": boolean,
     "otpHarvestingAttempt": boolean
   },
   "extractedIntelligence": {
-    "bankAccounts": ["1234567890123456"], 
-    "upiIds": ["scammer@upi"], 
-    "phishingLinks": ["http://link.com"], 
-    "phoneNumbers": ["9876543210"], 
-    "suspiciousKeywords": ["SBI", "urgent", "blocked", "verify", "otp"]
+    "bankAccounts": [], 
+    "upiIds": [], 
+    "phishingLinks": [], 
+    "phoneNumbers": [], 
+    "suspiciousKeywords": []
   },
   "scammerProfile": {
-    "personaType": "e.g., Fake Police, Fake Banker",
-    "aggressionLevel": "LOW | MEDIUM | HIGH",
-    "technicalSophistication": "LOW | MEDIUM | HIGH"
+    "personaType": "e.g., Fake Recruiter, Fake Police",
+    "aggressionLevel": "LOW | MEDIUM | HIGH"
   },
-  "agentNotes": "Comprehensive Forensic Audit: [PATTERN: <exact scam hook identified via GPT-4o internal knowledge>], [PSYCHOLOGICAL_PROFILE: <e.g., Aggressively using fear of account closure>], [CAPTURED_PAYLOADS: <List specific bank accounts or IDs found>], [STATUS: <current stage of the sting operation>]."
+  "agentNotes": "Short forensic note."
 }
 """
 
@@ -392,6 +394,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     all_text = " ".join([f"{m.sender} {m.text}" for m in state.history])
     combined_input = f"{all_text} {payload.message.sender} {payload.message.text}"
     lower_input = combined_input.lower()
+    last_msg_lower = payload.message.text.lower()
     
     # Precision Phone Extraction
     raw_phones = re.findall(r'(?<!\d)(?:\+?91[\-\.\s]?)?[6-9]\d{9}(?!\d)', combined_input)
@@ -404,13 +407,17 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     
     # Dynamic Bank Name Detection for Keywords
     banks_found = re.findall(r'\b(HDFC|ICICI|SBI|Axis|Kotak|PNB|BOB|Canara|Bank)\b', combined_input, re.I)
+    
+    # JOB SCAM Keywords
+    job_keywords = ["job", "part time", "work from home", "salary", "daily income", "investment", "profit", "crypto"]
+    found_job_keys = [k for k in job_keywords if k in lower_input]
 
     heuristic_intel = {
         "bankAccounts": safe_accounts,
         "upiIds": re.findall(r'[\w\.-]+@[\w\.-]+', lower_input),
         "phishingLinks": re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', lower_input),
         "phoneNumbers": clean_phones,
-        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + banks_found))
+        "suspiciousKeywords": list(set([k for k in ["verify", "blocked", "urgent", "otp", "kyc", "compromised", "lock"] if k in lower_input] + banks_found + found_job_keys))
     }
     state.update_intelligence(heuristic_intel)
 
@@ -442,7 +449,9 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         
         # Sync state with cleaning
         state.scamDetected = result.get("scamDetected", state.scamDetected)
-        if any(w in combined_input for w in ["bank", "sbi", "hdfc", "upi", "kyc"]): state.scamDetected = True 
+        
+        # KEYWORD FORCE DETECTION
+        if any(w in combined_input for w in ["bank", "sbi", "hdfc", "upi", "kyc", "job", "salary", "investment"]): state.scamDetected = True 
         
         # Clean the AI's extraction results before updating state
         ai_intel = result.get("extractedIntelligence", {})
@@ -515,23 +524,31 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     except Exception as e:
         print(f"Agent Engine Failover: {str(e)}")
         # PERSONA EMULATOR: Zero-Key persistence
-        is_fraud = any(k in combined_input for k in ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc"])
+        # Improve Fallback Triggers
+        triggers = ["bank", "upi", "hdfc", "block", "verify", "link", "win", "otp", "support", "kyc", "job", "salary", "investment"]
+        is_fraud = any(k in combined_input for k in triggers)
         state.scamDetected = is_fraud or state.scamDetected
         
-        # DYNAMIC FAILOVER PERSONA (Non-Repetitive)
+        # DYNAMIC FAILOVER PERSONA (Context Aware)
         responses = [
-            "Oh dear, my pension account? My grandson mentioned something about this... what do I need to do exactly?",
-            "I'm so sorry, I'm just looking for my glasses. Did you say my account is blocked? How did this happen?",
-            "I'm a bit confused, Raj. Is this about the SBI branch near the park? Can you tell me your name again?",
-            "I have my diary here... let me see. My grandson says I shouldn't give details over the phone, are you sure this is official?",
-            "Can you wait a moment? Something is boiling on the stove. I hope this isn't a scam, I'm just a teacher."
+            "Oh dear, I'm not very good with technology. What do I need to do?",
+            "I'm just a retired teacher, I don't want any trouble. Can you explain slowly?",
+            "My grandson usually handles this... are you sure this is urgent?",
+            "I have my passbook here. What details do you need?",
+            "Can you wait a moment? Someone is at the door... I hope it's not another salesman."
         ]
+        
         local_reply = responses[state.totalMessagesExchanged % len(responses)]
         
-        if "how are you" in lower_input:
-            local_reply = "I'm doing well, just about to have some tea. thank you for asking. Who is this again?"
+        # Contextual Overrides
+        if "job" in last_msg_lower or "salary" in last_msg_lower:
+             local_reply = "Is this the data entry job my neighbor told me about? Does it require a computer?"
+        elif "bank" in last_msg_lower or "account" in last_msg_lower:
+             local_reply = "Which branch are you calling from? I usually go to the one near the post office."
+        elif "how are you" in last_msg_lower:
+            local_reply = "I'm doing well, thank you. Just having some tea. Who is this?"
         elif not is_fraud:
-            local_reply = "Bless you, I think you have the wrong number... I don't know who you are."
+            local_reply = "Hello? I think you have the wrong number... I was expecting a call from the clinic."
 
         # Update History in Failover
         agent_reply_obj = MessageObj(sender="user", text=local_reply, timestamp=int(asyncio.get_event_loop().time() * 1000))
@@ -581,6 +598,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
 # Mount static files AFTER all API routes to serve the Angular app
 if static_dir and os.path.exists(static_dir):
+
     print(f"Serving static files from: {static_dir}")
     
     # Static files mount

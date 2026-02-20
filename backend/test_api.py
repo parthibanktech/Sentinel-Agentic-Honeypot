@@ -54,5 +54,23 @@ def test_api():
         print(f"Error: {e}")
         print("\nNote: Make sure your server is running (python backend/server.py)")
 
+    print("\n--- Test 3: Weak Hook (Engagement Check) ---")
+    payload3 = {
+        "sessionId": "test-session-weak-1",
+        "message": {
+            "sender": "scammer",
+            "text": "Hi",
+            "timestamp": int(time.time() * 1000)
+        },
+        "conversationHistory": [],
+        "metadata": payload1["metadata"]
+    }
+    try:
+        resp3 = requests.post(URL, headers=HEADERS, json=payload3)
+        print(f"Status: {resp3.status_code}")
+        print(f"Response: {json.dumps(resp3.json(), indent=2)}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 if __name__ == "__main__":
     test_api()
