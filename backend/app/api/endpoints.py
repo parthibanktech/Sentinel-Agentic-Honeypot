@@ -278,30 +278,15 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     intel = extract_intelligence(text=payload.message.text, combined_input=all_text, lower_input=all_text.lower())
     state.update_intelligence(intel)
 
-    # --- 2. DETECTION (ML + Score + Agentic Analysis) ---
-    # Run ML and Score immediately
+    # --- 2. DETECTION (ML + Score) ---
+    # Core detection remains local and INSTANT.
     ml_scam, ml_conf = predict_scam_ml(payload.message.text)
     score_result = calculate_scam_score(payload.message.text, state.extractedIntelligence)
     
-    # Run Agentic Analysis (LLM) in Parallel for deeper insights if Turn 1 or scam suspected
-    agent_analysis = None
-    from backend.app.services.llm_engine import call_llm
-    from backend.app.core.config import OPENAI_API_KEY, is_valid_sk
-    
-    if is_valid_sk(OPENAI_API_KEY):
-        try:
-             # Concurrent task for deep analysis
-             analysis_prompt = f"Analyze this potential scam message. Return ONLY JSON: {{\"is_scam\": bool, \"attack_type\": \"string\", \"summary\": \"1-sentence professional analysis\"}}. Text: {payload.message.text}"
-             agent_analysis_task = asyncio.create_task(call_llm(analysis_prompt))
-        except: agent_analysis_task = None
-    else: agent_analysis_task = None
-
-    # Update state with advanced metrics
+    # Update local state immediately
     state.scamScore = score_result["score"]
     state.riskLevel = score_result["risk_level"]
     state.attackType = score_result["attack_type"]
-    
-    # Combine signals: ML OR Score OR Critical Intent
     if score_result["scam_detected"] or ml_scam:
         state.scamDetected = True
         
@@ -310,43 +295,44 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     if intent["threat"] or intent["urgency"] or intent["reward"] or (intent["verification"] and intent["has_entity"]):
         state.scamDetected = True
 
-    # --- 3. RESPONSE (Intent + Score Based) ---
+    # --- 3. RESPONSE GENERATION (Optimized for Speed) ---
     used_replies = set(m.text for m in state.history if m.sender == 'user')
     history_texts = [m.text for m in state.history]
     
-    # Generate reply task
-    reply_task = asyncio.create_task(generate_reply(payload.message.text, turn, used_replies, history_texts, score_result))
+    # Generate the reply (Turn 1 = Template, Turn 2+ = Possible LLM)
+    # This remains awaitable because it's the core blocker for the response.
+    reply = await generate_reply(payload.message.text, turn, used_replies, history_texts, score_result)
 
-    # Await both: Reply and Agentic Analysis
-    if agent_analysis_task:
-        try:
-            # Wait for both for a premium experience, but timeout if too slow
-            results = await asyncio.gather(reply_task, agent_analysis_task, return_exceptions=True)
-            reply = results[0] if not isinstance(results[0], Exception) else "I'm sorry, I'm a bit confused right now..."
+    # --- 4. AGENTIC ANALYSIS (Background Task - NO BLOCKING) ---
+    # We trigger the deep LLM analysis in the background to avoid 4s+ latency.
+    # This will update the agentNotes for the CALLBACK, but not block the REPLY.
+    async def perform_background_analysis(session_id, text, current_score, current_ml):
+        from backend.app.services.llm_engine import call_llm
+        from backend.app.core.config import OPENAI_API_KEY, is_valid_sk
+        if is_valid_sk(OPENAI_API_KEY):
+            try:
+                analysis_prompt = f"Analyze this potential scam. JSON ONLY: {{\"is_scam\": bool, \"attack_type\": \"string\", \"summary\": \"1-sentence\"}}. Text: {text}"
+                raw = await call_llm(analysis_prompt)
+                clean_json = re.search(r'\{.*\}', str(raw), re.DOTALL).group()
+                llm_data = json.loads(clean_json)
+                
+                # Update session state in background
+                s = sessions.get(session_id)
+                if s:
+                    if llm_data.get("is_scam"): s.scamDetected = True
+                    if llm_data.get("attack_type"): s.attackType = llm_data["attack_type"]
+                    # Update notes with the deep summary
+                    s.agentNotes = f"{llm_data.get('summary', '')} [System Score: {current_score}, ML Conf: {current_ml:.2f}]"
+            except: pass
             
-            raw_analysis = results[1] if not isinstance(results[1], Exception) else None
-            if raw_analysis:
-                try: 
-                    # Extract JSON from LLM response
-                    clean_json = re.search(r'\{.*\}', str(raw_analysis), re.DOTALL).group()
-                    agent_analysis = json.loads(clean_json)
-                    if agent_analysis.get("is_scam"): state.scamDetected = True
-                    if agent_analysis.get("attack_type"): state.attackType = agent_analysis["attack_type"]
-                    state.agentNotes = agent_analysis.get("summary", "")
-                except: pass
-        except:
-            reply = await reply_task
-    else:
-        reply = await reply_task
+    # Trigger background forensic analysis
+    asyncio.create_task(perform_background_analysis(sid, payload.message.text, state.scamScore, ml_conf))
 
-    # Fallback/Refined nodes
-    if not state.agentNotes:
+    # Standard note if LLM hasn't finished yet
+    if not state.agentNotes or "[System" not in state.agentNotes:
         state.agentNotes = f"Score:{state.scamScore} ({state.riskLevel}) Type:{state.attackType} ML:{ml_conf:.2f}"
-    else:
-        # Append technical markers to LLM summary
-        state.agentNotes += f" [System: Score {state.scamScore}, ML Confidence {ml_conf:.2f}]"
 
-    # Store
+    # Finalize state for the immediate response
     state.history.append(MessageObj(sender="user", text=reply, timestamp=int(time.time() * 1000)))
     state.totalMessagesExchanged = len(state.history)
 
