@@ -314,28 +314,40 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     # --- 4. AGENTIC ANALYSIS (Background Task - NO BLOCKING) ---
     # We trigger the deep LLM analysis in the background to avoid 4s+ latency.
     # This will update the agentNotes for the CALLBACK, but not block the REPLY.
-    async def perform_background_analysis(session_id, text, current_score, current_ml):
+    async def perform_background_analysis(session_id, text, current_score, current_ml, history):
         from backend.app.services.llm_engine import call_llm
         from backend.app.core.config import OPENAI_API_KEY, GOOGLE_API_KEY, is_valid_sk, is_valid_google
         if is_valid_sk(OPENAI_API_KEY) or is_valid_google(GOOGLE_API_KEY):
             try:
-                analysis_prompt = f"Analyze this potential scam for forensics. JSON ONLY: {{\"is_scam\": bool, \"attack_type\": \"string\", \"summary\": \"1-sentence\"}}. Text: {text}"
+                # Provide history for better context
+                context = " | ".join(history[-3:])
+                analysis_prompt = (
+                    f"History: {context}\n"
+                    f"New Message: {text}\n"
+                    "Analyze for malicious scam intent. "
+                    "JSON ONLY: {\"is_scam\": bool, \"confidence\": float[0-1], \"attack_type\": \"string\", \"summary\": \"1-sentence\"}"
+                )
                 raw = await call_llm(analysis_prompt)
                 match = re.search(r'\{.*\}', str(raw), re.DOTALL)
                 if match:
                     llm_data = json.loads(match.group())
-                    # Update session state safely
                     s = sessions.get(session_id)
                     if s and llm_data:
-                        if llm_data.get("is_scam"): s.scamDetected = True
-                        if llm_data.get("attack_type"): s.attackType = llm_data["attack_type"]
-                        s.agentNotes = f"{llm_data.get('summary', 'Scam detected.')} [Score: {current_score}, ML Conf: {current_ml:.2f}]"
+                        # Only flip detected bit if confidence is high or system score is already significant
+                        if llm_data.get("is_scam") and llm_data.get("confidence", 0) > 0.8:
+                            s.scamDetected = True
+                        
+                        if llm_data.get("attack_type"): 
+                            s.attackType = llm_data["attack_type"]
+                        
+                        summary = llm_data.get('summary', 'Analyzing...')
+                        s.agentNotes = f"{summary} [Confidence: {llm_data.get('confidence', 0):.2f}, Score: {current_score}]"
             except Exception as e:
                 print(f"[BG-Analysis] Silent failure: {e}")
                 pass
             
     # Trigger background forensic analysis
-    asyncio.create_task(perform_background_analysis(sid, payload.message.text, state.scamScore, ml_conf))
+    asyncio.create_task(perform_background_analysis(sid, payload.message.text, state.scamScore, ml_conf, history_texts))
 
     # Standard note if LLM hasn't finished yet
     if not state.agentNotes or "[System" not in state.agentNotes:
