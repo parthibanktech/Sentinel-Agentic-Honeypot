@@ -100,4 +100,57 @@ During manual code review, the judges look for **generic logic**.
 *   ❌ **Prohibited**: `if "SBI" in message: return ...`
 *   ✅ **Sentinel Approach**: `scam_score = ml_model.predict(message)` -> `topic = extract_focus(message)` -> `reply = generate_persona_reply(topic)`
 
-*Sentinel is verified to be 100% compliant with these rules.*
+---
+
+## 4. Postman Testing (Step-by-Step)
+If you prefer using **Postman** to test your API, follow these steps:
+
+### Step 1: Create a New Request
+*   **Method**: `POST`
+*   **URL**: `http://YOUR-EC2-IP/api/message` (or `http://localhost:8000/api/message`)
+
+### Step 2: Configure Headers
+Go to the **Headers** tab and add these keys:
+*   `Content-Type`: `application/json`
+*   `x-api-key`: `sentinel-master-key`
+
+### Step 3: Configure Body
+Go to the **Body** tab, select **raw**, and choose **JSON**. Paste this payload:
+```json
+{
+  "sessionId": "test-session-postman",
+  "message": {
+    "sender": "scammer",
+    "text": "URGENT: Your bank account is blocked. Call +91-9876543210 immediately or visit http://fake-bank.support to verify.",
+    "timestamp": 1700000000000
+  },
+  "conversationHistory": [],
+  "metadata": {
+    "channel": "WhatsApp",
+    "language": "English",
+    "locale": "IN"
+  }
+}
+```
+
+### Step 4: Analyze Response
+You will receive a 200 OK response like this:
+```json
+{
+    "status": "success",
+    "reply": "Wait, I am confused. Why would my account be blocked? +91-9876543210 seems like a personal number...",
+    "scamDetected": true,
+    "extractedIntelligence": {
+        "phoneNumbers": ["+91-9876543210"],
+        "bankAccounts": [],
+        "upiIds": [],
+        "phishingLinks": ["http://fake-bank.support"],
+        "emailAddresses": [],
+        "officialIds": []
+    },
+    "agentNotes": "The attacker is using a bank-impersonation urgency tactic... [System Score: 85]"
+}
+```
+
+---
+*Follow these instructions closely to ensure your API is functioning as expected before the hackathon evaluation begins.*
