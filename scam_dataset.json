@@ -1,0 +1,1466 @@
+[
+  [
+    "Dear Customer, KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Dear Customer, KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Dear Customer, KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Dear Customer, KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Dear Customer, PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Dear Customer, PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Dear Customer, PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Dear Customer, PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Dear Customer, Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Dear Customer, Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Dear Customer, Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Dear Customer, Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Dear Customer, Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Dear Customer, Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Dear Customer, Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Dear Customer, Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Dear Customer, Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Dear Customer, Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Dear Customer, Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Dear Customer, Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Alert: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Alert: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Alert: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Alert: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Alert: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Alert: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Alert: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Alert: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Alert: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Alert: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Alert: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Alert: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Alert: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Alert: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Alert: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Alert: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Alert: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Alert: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Alert: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Alert: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Warning: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Warning: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Warning: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Warning: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Warning: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Warning: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Warning: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Warning: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Warning: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Warning: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Warning: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Warning: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Warning: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Warning: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Warning: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Warning: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "Warning: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "Warning: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "Warning: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "Warning: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "SBI Bank: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "SBI Bank: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "SBI Bank: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "SBI Bank: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "SBI Bank: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "SBI Bank: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "SBI Bank: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "SBI Bank: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "SBI Bank: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "SBI Bank: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "SBI Bank: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "SBI Bank: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "SBI Bank: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "SBI Bank: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "SBI Bank: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "SBI Bank: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "SBI Bank: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "SBI Bank: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "SBI Bank: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "SBI Bank: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "HDFC Alert: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "HDFC Alert: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "HDFC Alert: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "HDFC Alert: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "HDFC Alert: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "HDFC Alert: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "HDFC Alert: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "HDFC Alert: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "HDFC Alert: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "HDFC Alert: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "HDFC Alert: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "HDFC Alert: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "HDFC Alert: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "HDFC Alert: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "HDFC Alert: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "HDFC Alert: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "HDFC Alert: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "HDFC Alert: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "HDFC Alert: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "HDFC Alert: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "URGENT: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "URGENT: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "URGENT: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "URGENT: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "URGENT: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "URGENT: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "URGENT: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "URGENT: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "URGENT: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "URGENT: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "URGENT: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "URGENT: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "URGENT: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "URGENT: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "URGENT: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "URGENT: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "URGENT: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "URGENT: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "URGENT: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "URGENT: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "RBI Notification: KYC update pending. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "RBI Notification: KYC update pending. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "RBI Notification: KYC update pending. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "RBI Notification: KYC update pending. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "RBI Notification: PAN card expired. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "RBI Notification: PAN card expired. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "RBI Notification: PAN card expired. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "RBI Notification: PAN card expired. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "RBI Notification: Account blocked within 24hrs. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "RBI Notification: Account blocked within 24hrs. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "RBI Notification: Account blocked within 24hrs. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "RBI Notification: Account blocked within 24hrs. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "RBI Notification: Debit card suspended. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "RBI Notification: Debit card suspended. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "RBI Notification: Debit card suspended. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "RBI Notification: Debit card suspended. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "RBI Notification: Electricity bill unpaid. Click here t.ly/xyz",
+    1
+  ],
+  [
+    "RBI Notification: Electricity bill unpaid. Call immediately 98xxxx",
+    1
+  ],
+  [
+    "RBI Notification: Electricity bill unpaid. Update now bit.ly/bank",
+    1
+  ],
+  [
+    "RBI Notification: Electricity bill unpaid. Verify at secure-bank.com",
+    1
+  ],
+  [
+    "This is CBI Officer. illegal parcel in your name. You will be arrested.",
+    1
+  ],
+  [
+    "This is CBI Officer. illegal parcel in your name. Come to station immediately.",
+    1
+  ],
+  [
+    "This is CBI Officer. illegal parcel in your name. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is CBI Officer. illegal parcel in your name. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is CBI Officer. drugs found in package. You will be arrested.",
+    1
+  ],
+  [
+    "This is CBI Officer. drugs found in package. Come to station immediately.",
+    1
+  ],
+  [
+    "This is CBI Officer. drugs found in package. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is CBI Officer. drugs found in package. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is CBI Officer. warrant issued against you. You will be arrested.",
+    1
+  ],
+  [
+    "This is CBI Officer. warrant issued against you. Come to station immediately.",
+    1
+  ],
+  [
+    "This is CBI Officer. warrant issued against you. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is CBI Officer. warrant issued against you. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is CBI Officer. mobile number disconnecting in 2 hours. You will be arrested.",
+    1
+  ],
+  [
+    "This is CBI Officer. mobile number disconnecting in 2 hours. Come to station immediately.",
+    1
+  ],
+  [
+    "This is CBI Officer. mobile number disconnecting in 2 hours. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is CBI Officer. mobile number disconnecting in 2 hours. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Mumbai Police. illegal parcel in your name. You will be arrested.",
+    1
+  ],
+  [
+    "This is Mumbai Police. illegal parcel in your name. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Mumbai Police. illegal parcel in your name. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Mumbai Police. illegal parcel in your name. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Mumbai Police. drugs found in package. You will be arrested.",
+    1
+  ],
+  [
+    "This is Mumbai Police. drugs found in package. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Mumbai Police. drugs found in package. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Mumbai Police. drugs found in package. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Mumbai Police. warrant issued against you. You will be arrested.",
+    1
+  ],
+  [
+    "This is Mumbai Police. warrant issued against you. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Mumbai Police. warrant issued against you. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Mumbai Police. warrant issued against you. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Mumbai Police. mobile number disconnecting in 2 hours. You will be arrested.",
+    1
+  ],
+  [
+    "This is Mumbai Police. mobile number disconnecting in 2 hours. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Mumbai Police. mobile number disconnecting in 2 hours. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Mumbai Police. mobile number disconnecting in 2 hours. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Customs Dept. illegal parcel in your name. You will be arrested.",
+    1
+  ],
+  [
+    "This is Customs Dept. illegal parcel in your name. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Customs Dept. illegal parcel in your name. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Customs Dept. illegal parcel in your name. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Customs Dept. drugs found in package. You will be arrested.",
+    1
+  ],
+  [
+    "This is Customs Dept. drugs found in package. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Customs Dept. drugs found in package. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Customs Dept. drugs found in package. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Customs Dept. warrant issued against you. You will be arrested.",
+    1
+  ],
+  [
+    "This is Customs Dept. warrant issued against you. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Customs Dept. warrant issued against you. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Customs Dept. warrant issued against you. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Customs Dept. mobile number disconnecting in 2 hours. You will be arrested.",
+    1
+  ],
+  [
+    "This is Customs Dept. mobile number disconnecting in 2 hours. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Customs Dept. mobile number disconnecting in 2 hours. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Customs Dept. mobile number disconnecting in 2 hours. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. illegal parcel in your name. You will be arrested.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. illegal parcel in your name. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. illegal parcel in your name. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. illegal parcel in your name. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. drugs found in package. You will be arrested.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. drugs found in package. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. drugs found in package. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. drugs found in package. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. warrant issued against you. You will be arrested.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. warrant issued against you. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. warrant issued against you. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. warrant issued against you. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. mobile number disconnecting in 2 hours. You will be arrested.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. mobile number disconnecting in 2 hours. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. mobile number disconnecting in 2 hours. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Narcotics Bureau. mobile number disconnecting in 2 hours. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Fedex Courier. illegal parcel in your name. You will be arrested.",
+    1
+  ],
+  [
+    "This is Fedex Courier. illegal parcel in your name. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Fedex Courier. illegal parcel in your name. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Fedex Courier. illegal parcel in your name. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Fedex Courier. drugs found in package. You will be arrested.",
+    1
+  ],
+  [
+    "This is Fedex Courier. drugs found in package. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Fedex Courier. drugs found in package. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Fedex Courier. drugs found in package. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Fedex Courier. warrant issued against you. You will be arrested.",
+    1
+  ],
+  [
+    "This is Fedex Courier. warrant issued against you. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Fedex Courier. warrant issued against you. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Fedex Courier. warrant issued against you. Do not disconnect call.",
+    1
+  ],
+  [
+    "This is Fedex Courier. mobile number disconnecting in 2 hours. You will be arrested.",
+    1
+  ],
+  [
+    "This is Fedex Courier. mobile number disconnecting in 2 hours. Come to station immediately.",
+    1
+  ],
+  [
+    "This is Fedex Courier. mobile number disconnecting in 2 hours. Pay fine to avoid jail.",
+    1
+  ],
+  [
+    "This is Fedex Courier. mobile number disconnecting in 2 hours. Do not disconnect call.",
+    1
+  ],
+  [
+    "Congratulations! Earn 5000/day. Join Telegram group.",
+    1
+  ],
+  [
+    "Congratulations! Earn 5000/day. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Congratulations! Earn 5000/day. Click link to claim.",
+    1
+  ],
+  [
+    "Congratulations! Double your money in 3 days. Join Telegram group.",
+    1
+  ],
+  [
+    "Congratulations! Double your money in 3 days. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Congratulations! Double your money in 3 days. Click link to claim.",
+    1
+  ],
+  [
+    "Congratulations! Win iPhone 15. Join Telegram group.",
+    1
+  ],
+  [
+    "Congratulations! Win iPhone 15. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Congratulations! Win iPhone 15. Click link to claim.",
+    1
+  ],
+  [
+    "Congratulations! Salary 1 lakh/month. Join Telegram group.",
+    1
+  ],
+  [
+    "Congratulations! Salary 1 lakh/month. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Congratulations! Salary 1 lakh/month. Click link to claim.",
+    1
+  ],
+  [
+    "Part time job offer: Earn 5000/day. Join Telegram group.",
+    1
+  ],
+  [
+    "Part time job offer: Earn 5000/day. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Part time job offer: Earn 5000/day. Click link to claim.",
+    1
+  ],
+  [
+    "Part time job offer: Double your money in 3 days. Join Telegram group.",
+    1
+  ],
+  [
+    "Part time job offer: Double your money in 3 days. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Part time job offer: Double your money in 3 days. Click link to claim.",
+    1
+  ],
+  [
+    "Part time job offer: Win iPhone 15. Join Telegram group.",
+    1
+  ],
+  [
+    "Part time job offer: Win iPhone 15. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Part time job offer: Win iPhone 15. Click link to claim.",
+    1
+  ],
+  [
+    "Part time job offer: Salary 1 lakh/month. Join Telegram group.",
+    1
+  ],
+  [
+    "Part time job offer: Salary 1 lakh/month. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Part time job offer: Salary 1 lakh/month. Click link to claim.",
+    1
+  ],
+  [
+    "Work from home: Earn 5000/day. Join Telegram group.",
+    1
+  ],
+  [
+    "Work from home: Earn 5000/day. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Work from home: Earn 5000/day. Click link to claim.",
+    1
+  ],
+  [
+    "Work from home: Double your money in 3 days. Join Telegram group.",
+    1
+  ],
+  [
+    "Work from home: Double your money in 3 days. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Work from home: Double your money in 3 days. Click link to claim.",
+    1
+  ],
+  [
+    "Work from home: Win iPhone 15. Join Telegram group.",
+    1
+  ],
+  [
+    "Work from home: Win iPhone 15. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Work from home: Win iPhone 15. Click link to claim.",
+    1
+  ],
+  [
+    "Work from home: Salary 1 lakh/month. Join Telegram group.",
+    1
+  ],
+  [
+    "Work from home: Salary 1 lakh/month. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Work from home: Salary 1 lakh/month. Click link to claim.",
+    1
+  ],
+  [
+    "Investment Opportunity: Earn 5000/day. Join Telegram group.",
+    1
+  ],
+  [
+    "Investment Opportunity: Earn 5000/day. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Investment Opportunity: Earn 5000/day. Click link to claim.",
+    1
+  ],
+  [
+    "Investment Opportunity: Double your money in 3 days. Join Telegram group.",
+    1
+  ],
+  [
+    "Investment Opportunity: Double your money in 3 days. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Investment Opportunity: Double your money in 3 days. Click link to claim.",
+    1
+  ],
+  [
+    "Investment Opportunity: Win iPhone 15. Join Telegram group.",
+    1
+  ],
+  [
+    "Investment Opportunity: Win iPhone 15. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Investment Opportunity: Win iPhone 15. Click link to claim.",
+    1
+  ],
+  [
+    "Investment Opportunity: Salary 1 lakh/month. Join Telegram group.",
+    1
+  ],
+  [
+    "Investment Opportunity: Salary 1 lakh/month. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Investment Opportunity: Salary 1 lakh/month. Click link to claim.",
+    1
+  ],
+  [
+    "Lottery Winner: Earn 5000/day. Join Telegram group.",
+    1
+  ],
+  [
+    "Lottery Winner: Earn 5000/day. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Lottery Winner: Earn 5000/day. Click link to claim.",
+    1
+  ],
+  [
+    "Lottery Winner: Double your money in 3 days. Join Telegram group.",
+    1
+  ],
+  [
+    "Lottery Winner: Double your money in 3 days. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Lottery Winner: Double your money in 3 days. Click link to claim.",
+    1
+  ],
+  [
+    "Lottery Winner: Win iPhone 15. Join Telegram group.",
+    1
+  ],
+  [
+    "Lottery Winner: Win iPhone 15. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Lottery Winner: Win iPhone 15. Click link to claim.",
+    1
+  ],
+  [
+    "Lottery Winner: Salary 1 lakh/month. Join Telegram group.",
+    1
+  ],
+  [
+    "Lottery Winner: Salary 1 lakh/month. Deposit 1000rs registration.",
+    1
+  ],
+  [
+    "Lottery Winner: Salary 1 lakh/month. Click link to claim.",
+    1
+  ],
+  [
+    "Hi, meeting is at 5pm. Thanks.",
+    0
+  ],
+  [
+    "Hi, meeting is at 5pm. See you.",
+    0
+  ],
+  [
+    "Hi, meeting is at 5pm. Ok.",
+    0
+  ],
+  [
+    "Hi, meeting is at 5pm. Cheers.",
+    0
+  ],
+  [
+    "Hi, can we reschedule?. Thanks.",
+    0
+  ],
+  [
+    "Hi, can we reschedule?. See you.",
+    0
+  ],
+  [
+    "Hi, can we reschedule?. Ok.",
+    0
+  ],
+  [
+    "Hi, can we reschedule?. Cheers.",
+    0
+  ],
+  [
+    "Hi, happy birthday!. Thanks.",
+    0
+  ],
+  [
+    "Hi, happy birthday!. See you.",
+    0
+  ],
+  [
+    "Hi, happy birthday!. Ok.",
+    0
+  ],
+  [
+    "Hi, happy birthday!. Cheers.",
+    0
+  ],
+  [
+    "Hi, where are you?. Thanks.",
+    0
+  ],
+  [
+    "Hi, where are you?. See you.",
+    0
+  ],
+  [
+    "Hi, where are you?. Ok.",
+    0
+  ],
+  [
+    "Hi, where are you?. Cheers.",
+    0
+  ],
+  [
+    "Hi, your transaction of 500rs is successful. Thanks.",
+    0
+  ],
+  [
+    "Hi, your transaction of 500rs is successful. See you.",
+    0
+  ],
+  [
+    "Hi, your transaction of 500rs is successful. Ok.",
+    0
+  ],
+  [
+    "Hi, your transaction of 500rs is successful. Cheers.",
+    0
+  ],
+  [
+    "Hello, meeting is at 5pm. Thanks.",
+    0
+  ],
+  [
+    "Hello, meeting is at 5pm. See you.",
+    0
+  ],
+  [
+    "Hello, meeting is at 5pm. Ok.",
+    0
+  ],
+  [
+    "Hello, meeting is at 5pm. Cheers.",
+    0
+  ],
+  [
+    "Hello, can we reschedule?. Thanks.",
+    0
+  ],
+  [
+    "Hello, can we reschedule?. See you.",
+    0
+  ],
+  [
+    "Hello, can we reschedule?. Ok.",
+    0
+  ],
+  [
+    "Hello, can we reschedule?. Cheers.",
+    0
+  ],
+  [
+    "Hello, happy birthday!. Thanks.",
+    0
+  ],
+  [
+    "Hello, happy birthday!. See you.",
+    0
+  ],
+  [
+    "Hello, happy birthday!. Ok.",
+    0
+  ],
+  [
+    "Hello, happy birthday!. Cheers.",
+    0
+  ],
+  [
+    "Hello, where are you?. Thanks.",
+    0
+  ],
+  [
+    "Hello, where are you?. See you.",
+    0
+  ],
+  [
+    "Hello, where are you?. Ok.",
+    0
+  ],
+  [
+    "Hello, where are you?. Cheers.",
+    0
+  ],
+  [
+    "Hello, your transaction of 500rs is successful. Thanks.",
+    0
+  ],
+  [
+    "Hello, your transaction of 500rs is successful. See you.",
+    0
+  ],
+  [
+    "Hello, your transaction of 500rs is successful. Ok.",
+    0
+  ],
+  [
+    "Hello, your transaction of 500rs is successful. Cheers.",
+    0
+  ],
+  [
+    "Hey, meeting is at 5pm. Thanks.",
+    0
+  ],
+  [
+    "Hey, meeting is at 5pm. See you.",
+    0
+  ],
+  [
+    "Hey, meeting is at 5pm. Ok.",
+    0
+  ],
+  [
+    "Hey, meeting is at 5pm. Cheers.",
+    0
+  ],
+  [
+    "Hey, can we reschedule?. Thanks.",
+    0
+  ],
+  [
+    "Hey, can we reschedule?. See you.",
+    0
+  ],
+  [
+    "Hey, can we reschedule?. Ok.",
+    0
+  ],
+  [
+    "Hey, can we reschedule?. Cheers.",
+    0
+  ],
+  [
+    "Hey, happy birthday!. Thanks.",
+    0
+  ],
+  [
+    "Hey, happy birthday!. See you.",
+    0
+  ],
+  [
+    "Hey, happy birthday!. Ok.",
+    0
+  ],
+  [
+    "Hey, happy birthday!. Cheers.",
+    0
+  ],
+  [
+    "Hey, where are you?. Thanks.",
+    0
+  ],
+  [
+    "Hey, where are you?. See you.",
+    0
+  ],
+  [
+    "Hey, where are you?. Ok.",
+    0
+  ],
+  [
+    "Hey, where are you?. Cheers.",
+    0
+  ],
+  [
+    "Hey, your transaction of 500rs is successful. Thanks.",
+    0
+  ],
+  [
+    "Hey, your transaction of 500rs is successful. See you.",
+    0
+  ],
+  [
+    "Hey, your transaction of 500rs is successful. Ok.",
+    0
+  ],
+  [
+    "Hey, your transaction of 500rs is successful. Cheers.",
+    0
+  ],
+  [
+    "Good morning, meeting is at 5pm. Thanks.",
+    0
+  ],
+  [
+    "Good morning, meeting is at 5pm. See you.",
+    0
+  ],
+  [
+    "Good morning, meeting is at 5pm. Ok.",
+    0
+  ],
+  [
+    "Good morning, meeting is at 5pm. Cheers.",
+    0
+  ],
+  [
+    "Good morning, can we reschedule?. Thanks.",
+    0
+  ],
+  [
+    "Good morning, can we reschedule?. See you.",
+    0
+  ],
+  [
+    "Good morning, can we reschedule?. Ok.",
+    0
+  ],
+  [
+    "Good morning, can we reschedule?. Cheers.",
+    0
+  ],
+  [
+    "Good morning, happy birthday!. Thanks.",
+    0
+  ],
+  [
+    "Good morning, happy birthday!. See you.",
+    0
+  ],
+  [
+    "Good morning, happy birthday!. Ok.",
+    0
+  ],
+  [
+    "Good morning, happy birthday!. Cheers.",
+    0
+  ],
+  [
+    "Good morning, where are you?. Thanks.",
+    0
+  ],
+  [
+    "Good morning, where are you?. See you.",
+    0
+  ],
+  [
+    "Good morning, where are you?. Ok.",
+    0
+  ],
+  [
+    "Good morning, where are you?. Cheers.",
+    0
+  ],
+  [
+    "Good morning, your transaction of 500rs is successful. Thanks.",
+    0
+  ],
+  [
+    "Good morning, your transaction of 500rs is successful. See you.",
+    0
+  ],
+  [
+    "Good morning, your transaction of 500rs is successful. Ok.",
+    0
+  ],
+  [
+    "Good morning, your transaction of 500rs is successful. Cheers.",
+    0
+  ],
+  [
+    "Your SBI transaction of Rs 500 is successful. Ref: 12345",
+    0
+  ],
+  [
+    "HDFC Bank: OTP for transaction is 849201. Do not share this with anyone.",
+    0
+  ],
+  [
+    "Police advise: Do not share OTP or passwords with strangers.",
+    0
+  ],
+  [
+    "Job interview scheduled for Monday 10am at office.",
+    0
+  ],
+  [
+    "Can you pay the electricity bill? I forgot.",
+    0
+  ],
+  [
+    "Meeting with the CBI consultant regarding tax compliance.",
+    0
+  ]
+]
