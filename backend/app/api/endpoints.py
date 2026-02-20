@@ -267,7 +267,7 @@ systemMetrics: model=Sentinel-Hybrid-v4, responseTimeMs=<100
 
 
 # --- MAIN ENDPOINT ---
-@router.post("/message", response_model=HoneypotResponse)
+@router.post("/message")
 async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_api_key)):
     start = time.time()
 
@@ -400,17 +400,24 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         
     clean_notes = base_note + extra_metrics
 
-    from backend.app.models.schemas import EngagementMetrics, IntelligenceObj
-    return HoneypotResponse(
-        sessionId=sid,
-        status="success", 
-        reply=reply,
-        scamDetected=state.scamDetected,
-        totalMessagesExchanged=state.totalMessagesExchanged,
-        extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
-        engagementMetrics=EngagementMetrics(
-            totalMessagesExchanged=state.totalMessagesExchanged,
-            engagementDurationSeconds=int(time.time() - state.start_time)
-        ),
-        agentNotes=clean_notes
-    )
+    # Evaluator Request: Simplified Early Turns vs Detailed Final Output
+    if state.totalMessagesExchanged < 6:
+        return {
+            "status": "success",
+            "reply": reply
+        }
+    
+    # Turn >= 6 returns Final Completion Structure
+    return {
+        "status": "completed", 
+        "reply": reply,
+        "scamDetected": state.scamDetected,
+        "totalMessagesExchanged": state.totalMessagesExchanged,
+        "extractedIntelligence": state.extractedIntelligence,
+        "engagementMetrics": {
+            "totalMessagesExchanged": state.totalMessagesExchanged,
+            "engagementDurationSeconds": int(time.time() - state.start_time)
+        },
+        "agentNotes": clean_notes,
+        "redFlags": state.extractedIntelligence.get("suspiciousKeywords", [])
+    }
