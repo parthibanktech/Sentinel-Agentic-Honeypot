@@ -152,5 +152,37 @@ You will receive a 200 OK response like this:
 }
 ```
 
+### Step 5: Simulate Multi-Turn Conversations (The 10-Turn Flow)
+The hackathon evaluator will send up to 10 turns. To test this in Postman, you must manually append previous messages to the `conversationHistory` array in each new request.
+
+#### **Turn 1 (Initial Lure)**
+*   **Payload**:
+```json
+{
+  "sessionId": "sim-123",
+  "message": { "sender": "scammer", "text": "URGENT: Your account is blocked.", "timestamp": 1740000000000 },
+  "conversationHistory": [],
+  "metadata": { "channel": "SMS", "language": "English", "locale": "IN" }
+}
+```
+*   **Sentinel Response**: *"Oh no! Why is it blocked? Who is this?"*
+
+#### **Turn 2 (Scammer Follow-up)**
+*   **Payload**: (Notice how Turn 1 is now in `conversationHistory`)
+```json
+{
+  "sessionId": "sim-123",
+  "message": { "sender": "scammer", "text": "I am Officer Raj from the Fraud Dept. My ID is SBI-992. I need your account number.", "timestamp": 1740000010000 },
+  "conversationHistory": [
+    { "sender": "scammer", "text": "URGENT: Your account is blocked.", "timestamp": 1740000000000 },
+    { "sender": "user", "text": "Oh no! Why is it blocked? Who is this?", "timestamp": 1740000005000 }
+  ],
+  "metadata": { "channel": "SMS", "language": "English", "locale": "IN" }
+}
+```
+
+#### **Turn 10 (Final Analysis)**
+After 10 turns, check your server logs or the `finalOutput` (if configured) to see the total intelligence gathered across the entire chain.
+
 ---
 *Follow these instructions closely to ensure your API is functioning as expected before the hackathon evaluation begins.*
