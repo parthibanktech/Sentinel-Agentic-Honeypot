@@ -3,6 +3,7 @@ import time
 import asyncio
 import json
 import httpx
+import os
 from fastapi import APIRouter, HTTPException, Depends, Header
 from backend.app.models.schemas import HoneypotRequest, HoneypotResponse, MessageObj
 from backend.app.services.session_manager import sessions, SessionState
