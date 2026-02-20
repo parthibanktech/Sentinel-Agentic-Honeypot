@@ -424,6 +424,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     
     # Return Final Completion Structure
     return {
+        "sessionId": sid,
         "status": "completed", 
         "reply": reply,
         "scamDetected": state.scamDetected,
