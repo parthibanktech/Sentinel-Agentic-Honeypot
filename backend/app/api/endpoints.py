@@ -160,8 +160,8 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
                 # High Risk: Start social engineering interrogation
                 instruction = "Persona: Vulnerable but helpful victim. Task: Be a bit confused. Subtly ask for evidence like their name, office, or an ID/badge photo to 'verify' it's official. Keep it natural. Keep response under 30 words."
             else:
-                # Low Risk: Just be a friendly, normal human respondent
-                instruction = "Persona: Friendly but cautious elderly person. Task: The message seems like a basic greeting or inquiry. Respond politely but briefly. Do not assume you know them. Do NOT ask for IDs or office locations unless it becomes strictly necessary. Keep it human. Keep response under 25 words."
+                # Low Risk: Treat as unknown number texting out of the blue
+                instruction = "Persona: Cautious elderly person. Task: You just received a text from an unknown number. State that you don't recognize the number and ask 'Who is this?' or 'Do I know you?'. Do NOT act like you know them. Keep response under 20 words."
 
             prompt = f"MESSAGE: {text}. INSTRUCTION: {instruction}"
             llm_reply = await call_llm(prompt)
