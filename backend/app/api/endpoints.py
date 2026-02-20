@@ -402,7 +402,7 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
 
     # --- CONVERSATION LIFECYCLE CONTROLLER ---
     # Hackathon Constraints: Min Engagement >= 5 turns, Safe Close <= 8 turns
-    MIN_TURNS = 5
+    MIN_TURNS = 7
     MAX_TURNS = 8
     
     # Check if we have extracted actionable entity intel (excluding just keywords)
