@@ -278,10 +278,24 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     intel = extract_intelligence(text=payload.message.text, combined_input=all_text, lower_input=all_text.lower())
     state.update_intelligence(intel)
 
-    # --- 2. DETECTION (ML + Score) ---
+    # --- 2. DETECTION (ML + Score + Agentic Analysis) ---
+    # Run ML and Score immediately
     ml_scam, ml_conf = predict_scam_ml(payload.message.text)
     score_result = calculate_scam_score(payload.message.text, state.extractedIntelligence)
     
+    # Run Agentic Analysis (LLM) in Parallel for deeper insights if Turn 1 or scam suspected
+    agent_analysis = None
+    from backend.app.services.llm_engine import call_llm
+    from backend.app.core.config import OPENAI_API_KEY, is_valid_sk
+    
+    if is_valid_sk(OPENAI_API_KEY):
+        try:
+             # Concurrent task for deep analysis
+             analysis_prompt = f"Analyze this potential scam message. Return ONLY JSON: {{\"is_scam\": bool, \"attack_type\": \"string\", \"summary\": \"1-sentence professional analysis\"}}. Text: {payload.message.text}"
+             agent_analysis_task = asyncio.create_task(call_llm(analysis_prompt))
+        except: agent_analysis_task = None
+    else: agent_analysis_task = None
+
     # Update state with advanced metrics
     state.scamScore = score_result["score"]
     state.riskLevel = score_result["risk_level"]
@@ -293,7 +307,6 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
         
     lower = payload.message.text.lower()
     intent = analyze_intent(payload.message.text, lower)
-    # Preservation of original intent checks just in case
     if intent["threat"] or intent["urgency"] or intent["reward"] or (intent["verification"] and intent["has_entity"]):
         state.scamDetected = True
 
@@ -301,17 +314,43 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     used_replies = set(m.text for m in state.history if m.sender == 'user')
     history_texts = [m.text for m in state.history]
     
-    # Pass score_result to generate robust reply
-    reply = await generate_reply(payload.message.text, turn, used_replies, history_texts, score_result)
+    # Generate reply task
+    reply_task = asyncio.create_task(generate_reply(payload.message.text, turn, used_replies, history_texts, score_result))
 
-    state.agentNotes = f"Score:{state.scamScore} ({state.riskLevel}) Type:{state.attackType} ML:{ml_conf:.2f}"
+    # Await both: Reply and Agentic Analysis
+    if agent_analysis_task:
+        try:
+            # Wait for both for a premium experience, but timeout if too slow
+            results = await asyncio.gather(reply_task, agent_analysis_task, return_exceptions=True)
+            reply = results[0] if not isinstance(results[0], Exception) else "I'm sorry, I'm a bit confused right now..."
+            
+            raw_analysis = results[1] if not isinstance(results[1], Exception) else None
+            if raw_analysis:
+                try: 
+                    # Extract JSON from LLM response
+                    clean_json = re.search(r'\{.*\}', str(raw_analysis), re.DOTALL).group()
+                    agent_analysis = json.loads(clean_json)
+                    if agent_analysis.get("is_scam"): state.scamDetected = True
+                    if agent_analysis.get("attack_type"): state.attackType = agent_analysis["attack_type"]
+                    state.agentNotes = agent_analysis.get("summary", "")
+                except: pass
+        except:
+            reply = await reply_task
+    else:
+        reply = await reply_task
+
+    # Fallback/Refined nodes
+    if not state.agentNotes:
+        state.agentNotes = f"Score:{state.scamScore} ({state.riskLevel}) Type:{state.attackType} ML:{ml_conf:.2f}"
+    else:
+        # Append technical markers to LLM summary
+        state.agentNotes += f" [System: Score {state.scamScore}, ML Confidence {ml_conf:.2f}]"
 
     # Store
     state.history.append(MessageObj(sender="user", text=reply, timestamp=int(time.time() * 1000)))
     state.totalMessagesExchanged = len(state.history)
 
     # Callback Trigger Strategy
-    # Send if scam detected AND (Intel found OR conversation is progressing)
     intel_count = sum(len(v) for v in state.extractedIntelligence.values() if isinstance(v, list))
     if state.scamDetected and (intel_count >= 1 or state.totalMessagesExchanged >= 2):
         asyncio.create_task(send_final_result(state))
