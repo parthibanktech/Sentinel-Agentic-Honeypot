@@ -5,10 +5,11 @@ def extract_intelligence(text: str, combined_input: str, lower_input: str, clean
     """Extract ALL possible intelligence from the conversation text."""
     
     # 1. Phone Numbers - Multiple formats including +91-XXXX-XXXXXX, +91 XXXXXXXXXX, etc.
+    # Added lookbehinds and lookaheads so we don't extract partial 10 digits from an 18-digit bank account.
     phone_patterns = [
-        r'(?:\+?91[\s\-\.]?)?(?:\(?0?\)?[\s\-\.]?)?[6-9]\d{4}[\s\-\.]?\d{5}',  # Indian mobile
-        r'\+91[\-\s]?\d{10}',  # +91 prefix
-        r'\+91[\-\s]?\d{4}[\-\s]?\d{6}',  # +91-XXXX-XXXXXX
+        r'(?<!\d)(?:\+?91[\s\-\.]?)?(?:\(?0?\)?[\s\-\.]?)?[6-9]\d{4}[\s\-\.]?\d{5}(?!\d)',  # Indian mobile
+        r'(?<!\d)\+91[\-\s]?\d{10}(?!\d)',  # +91 prefix
+        r'(?<!\d)\+91[\-\s]?\d{4}[\-\s]?\d{6}(?!\d)',  # +91-XXXX-XXXXXX
         r'(?<!\d)[6-9]\d{9}(?!\d)',  # Plain 10-digit
     ]
     
