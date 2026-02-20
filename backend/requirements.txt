@@ -7,3 +7,4 @@ langchain-openai
 langchain-core
 httpx
 scikit-learn
+openai
