@@ -44,11 +44,11 @@
             "Wait, {topic}? Is that official?"
         ],
         "greetings": [
-            "Hello. Yes, I am here.",
+            "Hello, do I know you?",
             "Hi. Who is this please?",
-            "Hello? I was just about to have tea.",
-            "Yes, hello. How can I help you?",
-            "Hi there. Is everything okay?"
+            "I don't recognize this number. Who is this?",
+            "Yes, hello. Who am I speaking to?",
+            "Hi there. Who is this?"
         ]
     },
     "openers": [
