@@ -6,3 +6,4 @@ langchain-google-genai
 langchain-openai
 langchain-core
 httpx
+scikit-learn
