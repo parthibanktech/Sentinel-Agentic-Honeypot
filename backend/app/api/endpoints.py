@@ -368,15 +368,37 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     elapsed = time.time() - start
     print(f"[API] {sid[:8]} T{state.totalMessagesExchanged} {elapsed*1000:.0f}ms Scam={state.scamDetected}")
 
+    # Construct clean, selectable agent notes
+    notes_parts = []
+    if state.attackType and state.attackType != "Unknown":
+        notes_parts.append(f"Scam Detected: {state.attackType}.")
+    elif state.scamDetected:
+        notes_parts.append("Potential Social Engineering Detected.")
+        
+    extracted_str = []
+    for k, v in state.extractedIntelligence.items():
+        if v and isinstance(v, list) and k != "suspiciousKeywords":
+            extracted_str.append(f"{k}: {', '.join(v)}")
+    if extracted_str:
+        notes_parts.append(f"Extracted -> {'; '.join(extracted_str)}.")
+        
+    ai_summary = state.agentNotes.split(' [Confidence:')[0] if state.agentNotes else ""
+    if ai_summary and not ai_summary.startswith("Active") and not ai_summary.startswith("Sentinel"):
+        notes_parts.append(f"Analysis: {ai_summary}")
+        
+    clean_notes = " ".join(notes_parts) if notes_parts else "Monitoring conversation."
+
     from backend.app.models.schemas import EngagementMetrics, IntelligenceObj
     return HoneypotResponse(
+        sessionId=sid,
         status="success", 
         reply=reply,
         scamDetected=state.scamDetected,
+        totalMessagesExchanged=state.totalMessagesExchanged,
         extractedIntelligence=IntelligenceObj(**state.extractedIntelligence),
         engagementMetrics=EngagementMetrics(
             totalMessagesExchanged=state.totalMessagesExchanged,
             engagementDurationSeconds=int(time.time() - state.start_time)
         ),
-        agentNotes=state.agentNotes
+        agentNotes=clean_notes
     )

@@ -47,9 +47,11 @@ class HoneypotResponse(BaseModel):
     """
     Mandatory schema for Hackathon Evaluation (Response Structure: 20 points).
     """
+    sessionId: Optional[str] = None
     status: str = "success"
     reply: str
     scamDetected: bool
+    totalMessagesExchanged: Optional[int] = 0
     extractedIntelligence: IntelligenceObj
     engagementMetrics: Optional[EngagementMetrics] = None
     agentNotes: Optional[str] = ""
