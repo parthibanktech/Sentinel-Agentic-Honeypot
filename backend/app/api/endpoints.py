@@ -143,7 +143,7 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
         return f"{p1} {p2} {p3}"
 
     # === GREETING DETECTION (Immediate Human-Like Response) ===
-    if len(lower) < 15 and any(g in lower for g in ["hi", "hello", "hey", "dear"]):
+    if len(lower) < 25 and any(g in lower for g in ["hi", "hello", "hey", "dear", "neighbor", "neighbour", "friend"]):
         return assemble("greetings", text_content=text)
 
     # === AI AUGMENTATION (Max Intelligence Layer) ===
@@ -153,8 +153,17 @@ async def generate_reply(text: str, turn: int, used_replies: set, history_texts:
     
     if is_valid_sk(OPENAI_API_KEY) or is_valid_google(GOOGLE_API_KEY):
         try:
-            # Use prompt to generate a realistic follow up that asks for intel
-            prompt = f"Persona: Old vulnerable victim. SCAM TOPIC: {extract_conversation_focus(text)}. SCAMMER MESSAGE: {text}. Context: This is Turn {turn}. Task: Play the persona. Be a bit confused but helpful. Try to ask for evidence (ID, photo, office location). Keep response under 30 words."
+            # DYNAMIC PERSONA LOGIC: Adjust interrogation based on risk
+            is_scam = score_result.get("scam_detected", False) if score_result else False
+            
+            if is_scam:
+                # High Risk: Start social engineering interrogation
+                instruction = "Persona: Vulnerable but helpful victim. Task: Be a bit confused. Subtly ask for evidence like their name, office, or an ID/badge photo to 'verify' it's official. Keep it natural. Keep response under 30 words."
+            else:
+                # Low Risk: Just be a friendly, normal human neighbor/friend
+                instruction = "Persona: Friendly but cautious elderly person. Task: The message seems normal or friendly (e.g., neighbor). Be kind and helpful. Do NOT ask for IDs or office locations unless it becomes strictly necessary. Keep it human. Keep response under 25 words."
+
+            prompt = f"MESSAGE: {text}. INSTRUCTION: {instruction}"
             llm_reply = await call_llm(prompt)
             if len(llm_reply) > 5: return llm_reply
         except Exception as e:
