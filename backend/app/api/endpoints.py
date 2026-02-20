@@ -368,17 +368,25 @@ async def handle_message(payload: HoneypotRequest, auth: str = Depends(verify_ap
     elapsed = time.time() - start
     print(f"[API] {sid[:8]} T{state.totalMessagesExchanged} {elapsed*1000:.0f}ms Scam={state.scamDetected}")
 
-    # Construct clean, human-readable agent notes (preferred format by Evaluator)
+    # Construct highly detailed, metric-rich agent notes
     ai_summary = state.agentNotes.split(' [Confidence:')[0] if state.agentNotes else ""
     is_placeholder = ai_summary.startswith("Active") or ai_summary.startswith("Sentinel")
     
-    if ai_summary and not is_placeholder:
-        clean_notes = ai_summary
-    elif state.scamDetected:
-        type_str = state.attackType if state.attackType and state.attackType != "Unknown" else "suspicious activity"
-        clean_notes = f"Scammer is attempting {type_str}."
-    else:
-        clean_notes = "Initial engagement appears normal. Monitoring for suspicious requests."
+    base_note = ai_summary if (ai_summary and not is_placeholder) else (f"Scammer is attempting {state.attackType or 'suspicious activity'}." if state.scamDetected else "Initial engagement appears normal. Monitoring for suspicious requests.")
+
+    # Build metric string
+    extracted_items = []
+    for k, v in state.extractedIntelligence.items():
+        if v and isinstance(v, list) and k != "suspiciousKeywords":
+            extracted_items.append(f"{k}: {', '.join(v)}")
+            
+    duration = int(time.time() - state.start_time)
+    extra_metrics = f" | Metrics -> Score: {state.scamScore:.2f}, Risk: {state.riskLevel}, Duration: {duration}s, Auto-replies: {state.totalMessagesExchanged}"
+    
+    if extracted_items:
+        extra_metrics += f" | Intel Found -> {'; '.join(extracted_items)}"
+        
+    clean_notes = base_note + extra_metrics
 
     from backend.app.models.schemas import EngagementMetrics, IntelligenceObj
     return HoneypotResponse(
